@@ -8,6 +8,7 @@ LABEL schema.version="20251225"
 
 # 3. 版本号定义 - 方便后续更新
 ARG SAMTOOLS_VERSION=1.23
+ARG BCFTOOLS_VERSION=1.23
 ARG BWA_VERSION=0.7.19
 ARG SAMBAMBA_VERSION=1.0.1
 ARG BWA_MEM2_VERSION=2.3
@@ -44,6 +45,16 @@ RUN wget https://github.com/samtools/samtools/releases/download/${SAMTOOLS_VERSI
     make && \
     cp samtools /usr/local/bin/ && \
     rm -rf /software/samtools-${SAMTOOLS_VERSION}
+
+# bcftools
+RUN wget https://github.com/samtools/bcftools/releases/download/${BCFTOOLS_VERSION}/bcftools-${BCFTOOLS_VERSION}.tar.bz2 && \
+    tar -jxvf bcftools-${BCFTOOLS_VERSION}.tar.bz2 && \
+    rm bcftools-${BCFTOOLS_VERSION}.tar.bz2 && \
+    cd bcftools-${BCFTOOLS_VERSION} && \
+    ./configure --prefix $(pwd) && \
+    make && \
+    cp bcftools /usr/local/bin/ && \
+    rm -rf /software/bcftools-${BCFTOOLS_VERSION}
 
 # bwa
 RUN wget https://github.com/lh3/bwa/archive/refs/tags/v${BWA_VERSION}.zip && \
