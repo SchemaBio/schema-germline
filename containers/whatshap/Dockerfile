@@ -1,7 +1,7 @@
 # 第一阶段：构建
 FROM python:3.9-slim AS builder
 
-# 2. 注入绳墨生物的"基因"
+# 注入绳墨生物的"基因"
 LABEL maintainer="Schema Bio"
 LABEL vendor="Schema Bio"
 LABEL schema.version="20251226"
