@@ -32,9 +32,6 @@ def validateConfig(config) {
     if (!config.reference?.fasta) {
         error "ERROR: 配置文件中未找到 reference.fasta"
     }
-    if (!config.reference?.bwamem2_index && !config.reference?.bwa_index) {
-        error "ERROR: 配置文件中未找到 reference.bwamem2_index 或 reference.bwa_index"
-    }
 }
 
 /*
@@ -62,16 +59,12 @@ workflow {
     
     // 参考基因组 channels
     def ref = config.reference
-    ch_fasta         = Channel.value(file(ref.fasta))
-    ch_fasta_fai     = ref.fasta_fai ? Channel.value(file(ref.fasta_fai)) : Channel.value(file("${ref.fasta}.fai"))
-    ch_bwamem2_index = ref.bwamem2_index ? Channel.value(file(ref.bwamem2_index)) : Channel.value([])
-    ch_bwa_index     = ref.bwa_index ? Channel.value(file(ref.bwa_index)) : Channel.value([])
+    ch_fasta     = Channel.value(file(ref.fasta))
+    ch_fasta_fai = ref.fasta_fai ? Channel.value(file(ref.fasta_fai)) : Channel.value(file("${ref.fasta}.fai"))
 
     // 运行 WES 单样本流程
     WES_SINGLE (
         ch_reads,
-        ch_bwamem2_index,
-        ch_bwa_index,
         ch_fasta,
         ch_fasta_fai
     )

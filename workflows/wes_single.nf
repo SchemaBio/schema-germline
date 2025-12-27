@@ -16,8 +16,6 @@ workflow WES_SINGLE {
 
     take:
     ch_reads          // channel: [ val(meta), [ reads ] ]
-    ch_bwamem2_index  // channel: path(bwamem2_index)
-    ch_bwa_index      // channel: path(bwa_index)
     ch_fasta          // channel: path(fasta)
     ch_fasta_fai      // channel: path(fasta_fai)
 
@@ -35,8 +33,6 @@ workflow WES_SINGLE {
     //
     BWA_MEM2 (
         FASTP.out.reads,
-        ch_bwamem2_index,
-        ch_bwa_index,
         ch_fasta,
         'cram'  // 输出格式
     )

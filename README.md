@@ -15,53 +15,40 @@
 ```json
 {
   "sample_id": "sample1",
-  "read1": "/data/sample1_R1.fq.gz",
-  "read2": "/data/sample1_R2.fq.gz",
+  "read1": "/mnt/d/data/sample1_R1.fq.gz",
+  "read2": "/mnt/d/data/sample1_R2.fq.gz",
   "reference": {
-    "fasta": "/reference/hg38.fa",
-    "fasta_fai": "/reference/hg38.fa.fai",
-    "bwamem2_index": "/reference/bwamem2_index"
+    "fasta": "/mnt/d/reference/hg38.fa"
   },
-  "outdir": "./results"
+  "outdir": "/mnt/d/analysis/results"
 }
 ```
 
-> 注意：路径应为容器内路径，与 `-v` 挂载目录对应
+> bwa/bwa-mem2 索引文件需与 fasta 同目录同前缀，无需单独配置。
 
 ### 3. 运行流程
 
 ```bash
+# 设置路径 (使用真实路径，不要用别名)
+WORKDIR=/mnt/d/analysis
+DATADIR=/mnt/d/data
+REFDIR=/mnt/d/reference
+
 # 运行单个样本
 docker run --rm -it \
     -v /var/run/docker.sock:/var/run/docker.sock \
-    -v $(pwd):/workspace \
-    -v /path/to/data:/data \
-    -v /path/to/reference:/reference \
-    -w /workspace \
+    -v /path/to/schema-germline:/pipeline:ro \
+    -v ${WORKDIR}:${WORKDIR} \
+    -v ${DATADIR}:${DATADIR} \
+    -v ${REFDIR}:${REFDIR} \
+    -w ${WORKDIR} \
     nextflow/nextflow:latest \
-    nextflow run main.nf \
+    nextflow run /pipeline/main.nf \
         --config sample1.json \
         -profile docker
-
-# 批量运行多个样本
-for config in samples/*.json; do
-    docker run --rm -d \
-        -v /var/run/docker.sock:/var/run/docker.sock \
-        -v $(pwd):/workspace \
-        -v /path/to/data:/data \
-        -v /path/to/reference:/reference \
-        -w /workspace \
-        nextflow/nextflow:latest \
-        nextflow run main.nf \
-            --config $config \
-            -profile docker
-done
-
-# HPC Singularity 运行
-nextflow run main.nf \
-    --config sample1.json \
-    -profile slurm,singularity
 ```
+
+> **Docker-in-Docker 注意事项：** 除 pipeline 目录外，所有路径挂载时容器内外必须一致。因为 Nextflow 调度的子容器由宿主机 Docker daemon 启动，只能看到宿主机文件系统。
 
 ### 4. 配置文件说明
 
@@ -72,13 +59,13 @@ nextflow run main.nf \
   "read2": "R2 fastq 路径",
   "reference": {
     "fasta": "参考基因组 FASTA",
-    "fasta_fai": "FASTA 索引 (可选)",
-    "bwamem2_index": "BWA-MEM2 索引目录",
-    "bwa_index": "BWA 索引目录 (低内存备选)"
+    "fasta_fai": "FASTA 索引 (可选)"
   },
   "outdir": "输出目录 (默认 ./results)"
 }
 ```
+
+> bwa/bwa-mem2 索引文件需与 fasta 同目录同前缀，无需单独配置。
 
 ### 5. 输出结构
 

@@ -9,8 +9,8 @@
  *   - JSON/HTML 质控报告
  */
 process FASTP {
-    tag "$meta.id"        // 任务标签，显示样本ID便于追踪
-    label 'process_medium' // 资源标签
+    tag "$meta.id"
+    label 'process_low'  // fastp 内存需求低
 
     input:
     tuple val(meta), path(reads)  // meta: 样本元信息; reads: [R1.fq.gz, R2.fq.gz]
