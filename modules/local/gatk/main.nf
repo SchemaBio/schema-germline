@@ -43,16 +43,15 @@ process GATK_CREATESEQUENCEDICTIONARY {
  */
 process GATK_MARKDUPLICATES {
     tag "$meta.id"
-    label 'process_medium'
 
     input:
     tuple val(meta), path(alignment), path(alignment_index)  // BAM/CRAM 及其索引 (.bai/.crai)
-    path  fasta           // CRAM 输出时需要参考序列
+    val   fasta_path      // CRAM 输出时需要参考序列路径
     val   output_format   // 输出格式: 'cram' (默认) 或 'bam'
 
     output:
-    tuple val(meta), path("*.md.{cram,bam}"), path("*.md.{cram.crai,bam.bai}"), emit: alignment  // 去重后的文件 (索引: sample.md.bam.bai / sample.md.cram.crai)
-    tuple val(meta), path("*.metrics.txt")                                   , emit: metrics    // 重复率统计
+    tuple val(meta), path("*.md.{cram,bam}"), path("*.md.{cram.crai,bam.bai}"), emit: alignment
+    tuple val(meta), path("*.metrics.txt")                                   , emit: metrics
     path "versions.yml"                                                      , emit: versions
 
     when:
@@ -63,7 +62,7 @@ process GATK_MARKDUPLICATES {
     def prefix = task.ext.prefix ?: "${meta.id}"
     def format = output_format ?: 'cram'
     def output_file = format == 'cram' ? "${prefix}.md.cram" : "${prefix}.md.bam"
-    def ref_cmd = format == 'cram' ? "--REFERENCE_SEQUENCE ${fasta}" : ''
+    def ref_cmd = format == 'cram' ? "--REFERENCE_SEQUENCE ${fasta_path}" : ''
     """
     gatk MarkDuplicates \\
         --INPUT ${alignment} \\
@@ -73,7 +72,7 @@ process GATK_MARKDUPLICATES {
         ${ref_cmd} \\
         ${args}
 
-    # 重命名索引文件，与 samtools 格式保持一致 (sample.md.bam.bai / sample.md.cram.crai)
+    # 重命名索引文件
     if [ -f "${prefix}.md.bai" ]; then
         mv ${prefix}.md.bai ${prefix}.md.bam.bai
     fi
