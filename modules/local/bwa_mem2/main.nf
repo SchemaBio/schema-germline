@@ -32,55 +32,34 @@ process BWA_MEM2 {
     def read_group = meta.read_group ?: "@RG\\tID:${meta.id}\\tSM:${meta.id}\\tPL:ILLUMINA"
     def format = output_format ?: 'cram'
     
-    // 内存阈值: 64GB - 根据实际分配的内存选择比对工具
-    def mem_threshold = 64 * 1024 * 1024 * 1024
-    def use_bwamem2 = task.memory?.toBytes() >= mem_threshold
+    // 内存阈值: 64GB - 在 Groovy 层面判断并选择 aligner
+    def mem_bytes = task.memory ? task.memory.toBytes() : 0
+    def mem_threshold = 64L * 1024L * 1024L * 1024L
+    def aligner = mem_bytes >= mem_threshold ? 'bwa-mem2' : 'bwa'
     
-    def aligner = use_bwamem2 ? 'bwa-mem2' : 'bwa'
+    def output_ext = format == 'cram' ? 'cram' : 'bam'
+    def index_ext = format == 'cram' ? 'crai' : 'bai'
+    def sort_opts = format == 'cram' ? "--reference ${fasta} -O cram" : "-O bam"
     
-    if (format == 'cram') {
-        """
-        echo "使用比对工具: ${aligner} (分配内存: ${task.memory})"
+    """
+    echo "使用比对工具: ${aligner} (分配内存: ${task.memory})"
 
-        ${aligner} mem \\
-            -t ${task.cpus} \\
-            -R "${read_group}" \\
-            ${args} \\
-            ${fasta} \\
-            ${reads[0]} \\
-            ${reads[1]} \\
-            | samtools sort -@ ${task.cpus} --reference ${fasta} -O cram -o ${prefix}.cram -
+    ${aligner} mem \\
+        -t ${task.cpus} \\
+        -R "${read_group}" \\
+        ${args} \\
+        ${fasta} \\
+        ${reads[0]} \\
+        ${reads[1]} \\
+        | samtools sort -@ ${task.cpus} ${sort_opts} -o ${prefix}.${output_ext} -
 
-        samtools index -@ ${task.cpus} ${prefix}.cram
+    samtools index -@ ${task.cpus} ${prefix}.${output_ext}
 
-        cat <<-END_VERSIONS > versions.yml
-        "${task.process}":
-            aligner: ${aligner}
-            ${aligner}: \$(${aligner} version 2>&1 | head -n1)
-            samtools: \$(samtools --version | head -n1 | sed 's/samtools //')
-        END_VERSIONS
-        """
-    } else {
-        """
-        echo "使用比对工具: ${aligner} (分配内存: ${task.memory})"
-
-        ${aligner} mem \\
-            -t ${task.cpus} \\
-            -R "${read_group}" \\
-            ${args} \\
-            ${fasta} \\
-            ${reads[0]} \\
-            ${reads[1]} \\
-            | samtools sort -@ ${task.cpus} -O bam -o ${prefix}.bam -
-
-        samtools index -@ ${task.cpus} ${prefix}.bam
-
-        cat <<-END_VERSIONS > versions.yml
-        "${task.process}":
-            aligner: ${aligner}
-            ${aligner}: \$(${aligner} version 2>&1 | head -n1)
-            samtools: \$(samtools --version | head -n1 | sed 's/samtools //')
-        END_VERSIONS
-        """
-    }
+    cat <<-END_VERSIONS > versions.yml
+    "${task.process}":
+        aligner: ${aligner}
+        ${aligner}: \$(${aligner} version 2>&1 | head -n1)
+        samtools: \$(samtools --version | head -n1 | sed 's/samtools //')
+    END_VERSIONS
+    """
 }
