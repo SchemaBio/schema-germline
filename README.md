@@ -6,62 +6,79 @@
 
 ### 1. 环境要求
 
-- Nextflow >= 23.04.0
-- Docker / Singularity / Podman (任选其一)
+- Docker
 
-### 2. 准备输入文件
+### 2. 准备配置文件
 
-**样本表 (samplesheet.csv)**
-```csv
-sample_id,read1,read2
-sample1,/path/to/sample1_R1.fq.gz,/path/to/sample1_R2.fq.gz
-sample2,/path/to/sample2_R1.fq.gz,/path/to/sample2_R2.fq.gz
+每个样本一个 JSON 文件，如 `sample1.json`:
+
+```json
+{
+  "sample_id": "sample1",
+  "read1": "/data/sample1_R1.fq.gz",
+  "read2": "/data/sample1_R2.fq.gz",
+  "reference": {
+    "fasta": "/reference/hg38.fa",
+    "fasta_fai": "/reference/hg38.fa.fai",
+    "bwamem2_index": "/reference/bwamem2_index"
+  },
+  "outdir": "./results"
+}
 ```
 
-**参考基因组**
-- FASTA 文件 (需要 `.fai` 索引)
-- BWA-MEM2 或 BWA 索引目录
+> 注意：路径应为容器内路径，与 `-v` 挂载目录对应
 
 ### 3. 运行流程
 
 ```bash
-# 本地 Docker 运行
-nextflow run main.nf \
-    --input samplesheet.csv \
-    --fasta /path/to/reference.fa \
-    --bwamem2_index /path/to/bwamem2_index \
-    --outdir ./results \
-    -profile docker
+# 运行单个样本
+docker run --rm -it \
+    -v /var/run/docker.sock:/var/run/docker.sock \
+    -v $(pwd):/workspace \
+    -v /path/to/data:/data \
+    -v /path/to/reference:/reference \
+    -w /workspace \
+    nextflow/nextflow:latest \
+    nextflow run main.nf \
+        --config sample1.json \
+        -profile docker
+
+# 批量运行多个样本
+for config in samples/*.json; do
+    docker run --rm -d \
+        -v /var/run/docker.sock:/var/run/docker.sock \
+        -v $(pwd):/workspace \
+        -v /path/to/data:/data \
+        -v /path/to/reference:/reference \
+        -w /workspace \
+        nextflow/nextflow:latest \
+        nextflow run main.nf \
+            --config $config \
+            -profile docker
+done
 
 # HPC Singularity 运行
 nextflow run main.nf \
-    --input samplesheet.csv \
-    --fasta /path/to/reference.fa \
-    --bwamem2_index /path/to/bwamem2_index \
-    --outdir ./results \
+    --config sample1.json \
     -profile slurm,singularity
-
-# 低内存环境 (使用 bwa 替代 bwa-mem2)
-nextflow run main.nf \
-    --input samplesheet.csv \
-    --fasta /path/to/reference.fa \
-    --bwa_index /path/to/bwa_index \
-    --outdir ./results \
-    -profile docker
 ```
 
-### 4. 主要参数
+### 4. 配置文件说明
 
-| 参数 | 说明 | 默认值 |
-|------|------|--------|
-| `--input` | 样本表 CSV 文件 | 必填 |
-| `--fasta` | 参考基因组 FASTA | 必填 |
-| `--fasta_fai` | FASTA 索引文件 | `${fasta}.fai` |
-| `--bwamem2_index` | BWA-MEM2 索引目录 | - |
-| `--bwa_index` | BWA 索引目录 (低内存备选) | - |
-| `--outdir` | 输出目录 | `./results` |
-| `--save_trimmed_reads` | 保存过滤后的 FASTQ | `false` |
-| `--save_markdup_bam` | 保存去重后的 BAM | `false` |
+```json
+{
+  "sample_id": "样本ID",
+  "read1": "R1 fastq 路径",
+  "read2": "R2 fastq 路径",
+  "reference": {
+    "fasta": "参考基因组 FASTA",
+    "fasta_fai": "FASTA 索引 (可选)",
+    "bwamem2_index": "BWA-MEM2 索引目录",
+    "bwa_index": "BWA 索引目录 (低内存备选)"
+  },
+  "outdir": "输出目录 (默认 ./results)"
+}
+```
 
 ### 5. 输出结构
 
