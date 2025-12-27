@@ -3,8 +3,9 @@
  * 
  * 功能：将 PE 测序数据比对到参考基因组，排序后输出 CRAM/BAM 格式并建立索引
  * 工具：bwa-mem2 (内存 >= 64GB) 或 bwa mem (内存 < 64GB) + samtools
+ * 资源：由 modules.config 定义 (默认 16 CPU, 64GB 内存)
  * 
- * 智能决策：根据分配的内存自动选择比对工具
+ * 智能决策：根据实际分配的内存自动选择比对工具
  *   - >= 64GB: 使用 bwa-mem2 (更快)
  *   - <  64GB: 使用 bwa mem (内存友好)
  * 
@@ -12,10 +13,6 @@
  */
 process BWA_MEM2 {
     tag "$meta.id"
-
-    cpus   { 16 }
-    memory { 64.GB }
-    time   { 24.h }
 
     input:
     tuple val(meta), path(reads)  // meta: 样本元信息; reads: [R1.fq.gz, R2.fq.gz]
@@ -35,7 +32,7 @@ process BWA_MEM2 {
     def read_group = meta.read_group ?: "@RG\\tID:${meta.id}\\tSM:${meta.id}\\tPL:ILLUMINA"
     def format = output_format ?: 'cram'
     
-    // 内存阈值: 64GB
+    // 内存阈值: 64GB - 根据实际分配的内存选择比对工具
     def mem_threshold = 64 * 1024 * 1024 * 1024
     def use_bwamem2 = task.memory?.toBytes() >= mem_threshold
     

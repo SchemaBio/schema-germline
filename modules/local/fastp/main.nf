@@ -3,14 +3,10 @@
  * 
  * 功能：对 PE 测序数据进行质量控制和过滤
  * 工具：fastp
- * 
- * 输出：
- *   - 过滤后的 fastq 文件
- *   - JSON/HTML 质控报告
+ * 资源：由 modules.config 定义 (默认 8 CPU, 4GB 内存)
  */
 process FASTP {
     tag "$meta.id"
-    label 'process_low'  // fastp 内存需求低
 
     input:
     tuple val(meta), path(reads)  // meta: 样本元信息; reads: [R1.fq.gz, R2.fq.gz]
@@ -25,7 +21,7 @@ process FASTP {
     task.ext.when == null || task.ext.when
 
     script:
-    def args = task.ext.args ?: ''  // 额外参数，可在 modules.config 中配置
+    def args = task.ext.args ?: ''
     def prefix = task.ext.prefix ?: "${meta.id}"
     def threads = Math.min(task.cpus as int, 16)  // fastp 最多支持 16 线程
     """

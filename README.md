@@ -85,16 +85,43 @@ FASTP (质控过滤) -> BWA_MEM2 (比对) -> GATK_MARKDUPLICATES (标记重复) 
 
 ## Profiles
 
-| Profile | 说明 |
-|---------|------|
-| `docker` | 本地 Docker 运行 |
-| `singularity` | Singularity 容器 |
-| `podman` | Podman 容器 |
-| `slurm` | SLURM 调度器 |
-| `lsf` | LSF 调度器 |
-| `k8s` | Kubernetes |
-| `aliyun` | 阿里云 |
-| `tencent` | 腾讯云 |
+| Profile | max_cpus | max_memory | 说明 |
+|---------|----------|------------|------|
+| `local` | 4 | 12 GB | 本地单机 (资源受限) |
+| `docker` | - | - | Docker 容器运行时 |
+| `singularity` | - | - | Singularity 容器运行时 |
+| `podman` | - | - | Podman 容器运行时 |
+| `slurm` | 32 | 128 GB | SLURM 调度器 |
+| `lsf` | 32 | 128 GB | LSF 调度器 |
+| `k8s` | 64 | 256 GB | Kubernetes |
+| `aliyun` | 64 | 256 GB | 阿里云 |
+| `tencent` | 64 | 256 GB | 腾讯云 |
+| `test` | 2 | 6 GB | 测试用最小资源 |
+
+可组合使用: `-profile local,docker` 或 `-profile slurm,singularity`
+
+## 资源配置
+
+资源通过命令行参数覆盖 profile 默认值：
+
+```bash
+# 限制最大资源
+nextflow run /pipeline/main.nf \
+    --config sample.json \
+    --max_cpus 8 \
+    --max_memory 16.GB \
+    -profile docker
+```
+
+各模块的默认资源需求 (会被 max_* 参数限制)：
+
+| 模块 | CPU | 内存 | 说明 |
+|------|-----|------|------|
+| FASTP | 8 | 4 GB | 多线程有效，内存需求低 |
+| BWA_MEM2 | 16 | 64 GB | 内存 >= 64GB 用 bwa-mem2，否则自动降级为 bwa |
+| GATK_MARKDUPLICATES | 4 | 16 GB | - |
+| DEEPVARIANT | 16 | 32 GB | GPU 可加速 |
+| VEP | 4 | 8 GB | - |
 
 ## 项目结构
 
