@@ -11,9 +11,10 @@
 // SRY 基因坐标 (包含上下游 500bp 缓冲区)
 // GRCh37: Y:2654896-2655792
 // GRCh38: Y:2786855-2787741
+// 支持带 chr 前缀和不带 chr 前缀的染色体命名
 def SRY_REGIONS = [
-    'GRCh37': 'Y:2654396-2656292',
-    'GRCh38': 'Y:2786355-2788241'
+    'GRCh37': [nochr: 'Y:2654396-2656292', chr: 'chrY:2654396-2656292'],
+    'GRCh38': [nochr: 'Y:2786355-2788241', chr: 'chrY:2786355-2788241']
 ]
 
 process SEX_CHECK {
@@ -38,20 +39,25 @@ process SEX_CHECK {
     def args = task.ext.args ?: ''
     def prefix = task.ext.prefix ?: "${meta.id}"
     def assembly = genome_assembly ?: 'GRCh38'
-    def sry_region = SRY_REGIONS[assembly] ?: SRY_REGIONS['GRCh38']
+    def regions = SRY_REGIONS[assembly] ?: SRY_REGIONS['GRCh38']
+    def sry_region_nochr = regions.nochr
+    def sry_region_chr = regions.chr
     def ref_cmd = alignment.name.endsWith('.cram') ? "--reference ${fasta}" : ''
     def declared_sex = meta.sex ?: 'unknown'
     // 阈值：reads 数 >= 10 判定为男性
     def threshold = params.sex_check_threshold ?: 10
     """
-    # 统计 SRY 区域的 reads 数
-    SRY_READS=\$(samtools view -c ${ref_cmd} ${alignment} ${sry_region} 2>/dev/null || echo "0")
-    
-    # 尝试备用染色体命名 (chrY)
-    if [ "\${SRY_READS}" -eq 0 ]; then
-        ALT_REGION=\$(echo "${sry_region}" | sed 's/^Y:/chrY:/')
-        SRY_READS=\$(samtools view -c ${ref_cmd} ${alignment} \${ALT_REGION} 2>/dev/null || echo "0")
+    # 检测染色体命名方式 (通过查看 BAM/CRAM header)
+    CHR_STYLE=\$(samtools view -H ${ref_cmd} ${alignment} | grep -E "^@SQ.*SN:(chr)?[0-9XYM]" | head -1 | grep -o "SN:chr" || echo "")
+
+    if [ -n "\${CHR_STYLE}" ]; then
+        SRY_REGION="${sry_region_chr}"
+    else
+        SRY_REGION="${sry_region_nochr}"
     fi
+
+    # 统计 SRY 区域的 reads 数
+    SRY_READS=\$(samtools view -c ${ref_cmd} ${alignment} \${SRY_REGION} 2>/dev/null || echo "0")
 
     # 性别推断
     if [ "\${SRY_READS}" -ge ${threshold} ]; then
@@ -72,7 +78,8 @@ process SEX_CHECK {
     cat <<-EOF > ${prefix}.sex_check.txt
     sample_id: ${meta.id}
     genome_assembly: ${assembly}
-    sry_region: ${sry_region}
+    chr_style: \$([ -n "\${CHR_STYLE}" ] && echo "with_chr" || echo "no_chr")
+    sry_region: \${SRY_REGION}
     sry_reads: \${SRY_READS}
     threshold: ${threshold}
     inferred_sex: \${INFERRED_SEX}
