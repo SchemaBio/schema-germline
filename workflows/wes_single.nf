@@ -78,6 +78,8 @@ include { GENMOD_ANNOTATE } from '../modules/local/genmod/main'
 include { GENMOD_SORT } from '../modules/local/genmod/main'
 include { GENMOD_MODELS as GENMOD_MODELS_SNP } from '../modules/local/genmod/main'
 include { GENMOD_MODELS as GENMOD_MODELS_STR } from '../modules/local/genmod/main'
+include { GENMOD_MODELS as GENMOD_MODELS_MT } from '../modules/local/genmod/main'
+include { GENMOD_MODELS as GENMOD_MODELS_CNV } from '../modules/local/genmod/main'
 
 
 // ============================================================================
@@ -229,6 +231,18 @@ workflow WES_SINGLE {
             ch_mt_intervals
         )
         ch_versions = ch_versions.mix(GATK_MUTECT2_MT.out.versions.first())
+
+        // =========================================================================
+        // Step 6c: GENMOD - MT Genetic Model Annotation
+        // =========================================================================
+        GENMOD_MODELS_MT(
+            GATK_MUTECT2_MT.out.vcf,
+            ch_genmod_ped,
+            genmod_split_variants,
+            false,  // MT 变异通常未定相
+            genmod_strict
+        )
+        ch_versions = ch_versions.mix(GENMOD_MODELS_MT.out.versions.first())
     } else {
         ch_mt_vcf = Channel.empty()
     }
@@ -334,6 +348,19 @@ workflow WES_SINGLE {
 
         // Export CNV to VCF
         CNVKIT_EXPORT_VCF(CNVKIT_CALL.out.call)
+        ch_versions = ch_versions.mix(CNVKIT_EXPORT_VCF.out.versions.first())
+
+        // =========================================================================
+        // Step 10b: GENMOD - CNV Genetic Model Annotation
+        // =========================================================================
+        GENMOD_MODELS_CNV(
+            CNVKIT_EXPORT_VCF.out.vcf,
+            ch_genmod_ped,
+            genmod_split_variants,
+            false,  // CNV 变异未定相
+            genmod_strict
+        )
+        ch_versions = ch_versions.mix(GENMOD_MODELS_CNV.out.versions.first())
     } else {
         ch_cnvkit_out = Channel.empty()
         ch_cnvkit_vcf = Channel.empty()
@@ -355,31 +382,7 @@ workflow WES_SINGLE {
     ch_versions = ch_versions.mix(BCFTOOLS_STATS.out.versions.first())
 
     // =========================================================================
-    // Step 13: VEP - Variant Annotation
-    // =========================================================================
-    VEP(
-        WHATSHAP_PHASE.out.vcf,
-        ch_fasta,
-        ch_fasta_fai,
-        !ch_vep_cache.isEmpty() ? ch_vep_cache : Channel.value(file('NO_FILE')),
-        !ch_vep_plugins.isEmpty() ? ch_vep_plugins : Channel.value(file('NO_FILE')),
-        !ch_vep_clinvar.isEmpty() ? ch_vep_clinvar : Channel.value(file('NO_FILE')),
-        Channel.value(file('NO_FILE')),
-        !ch_vep_intervar.isEmpty() ? ch_vep_intervar : Channel.value(file('NO_FILE')),
-        Channel.value(file('NO_FILE')),
-        Channel.value(file('NO_FILE')),
-        Channel.value(file('NO_FILE')),
-        Channel.value(file('NO_FILE')),
-        Channel.value(file('NO_FILE')),
-        Channel.value(file('NO_FILE')),
-        '',
-        '',
-        genome_assembly
-    )
-    ch_versions = ch_versions.mix(VEP.out.versions.first())
-
-    // =========================================================================
-    // Step 14: SLIVAR - Variant Filtering (使用 VEP 注释后的 VCF)
+    // Step 13: SLIVAR - Variant Filtering (使用 VEP 注释后的 VCF)
     // =========================================================================
     SLIVAR_EXPR(
         VEP.out.vcf,
@@ -460,6 +463,9 @@ workflow WES_SINGLE {
     mt_vcf = GATK_MUTECT2_MT.out.vcf
     mt_stats = GATK_MUTECT2_MT.out.stats
 
+    // MT GenMod annotated
+    mt_genmod_vcf = GENMOD_MODELS_MT.out.vcf
+
     // Phased variants (WhatsHap)
     whatshap_vcf = WHATSHAP_PHASE.out.vcf
 
@@ -484,6 +490,9 @@ workflow WES_SINGLE {
     cnv_cns = !ch_cnvkit_out.isEmpty() ? ch_cnvkit_out.cns : Channel.empty()
     cnv_call = !ch_cnvkit_out.isEmpty() ? ch_cnvkit_out.call : Channel.empty()
     cnv_vcf = !ch_cnvkit_vcf.isEmpty() ? ch_cnvkit_vcf.vcf : Channel.empty()
+
+    // CNV GenMod annotated
+    cnv_genmod_vcf = GENMOD_MODELS_CNV.out.vcf
 
     // Plink2
     plink2_pgen = PLINK2_VCF_TO_PLINK.out.plink2.map { it[0] }

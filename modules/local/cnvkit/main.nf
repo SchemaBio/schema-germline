@@ -5,12 +5,150 @@
  * 工具：CNVkit
  *
  * 包含：
+ *   - CNVKIT_TARGET: 准备目标区域 BED
+ *   - CNVKIT_ANTITARGET: 生成反目标区域 BED
+ *   - CNVKIT_COVERAGE: 计算单样本覆盖度
  *   - CNVKIT_REFERENCE: 构建参考基线 (使用正常样本，内含 coverage 计算)
  *   - CNVKIT_REFERENCE_FLAT: 构建平坦基线 (无正常样本)
  *   - CNVKIT_CALL: CNV 检测 (coverage + fix + segment + call)
  *   - CNVKIT_EXPORT_VCF: 导出 VCF 格式
  *   - CNVKIT_SEX: 性别检测
  */
+
+/*
+ * CNVKIT_TARGET - 准备目标区域 BED
+ *
+ * 功能：将捕获区域 BED 转换为 CNVkit 优化的 target BED
+ * 说明：分割大区域，可选添加基因注释
+ */
+process CNVKIT_TARGET {
+    tag "target"
+    label 'process_low'
+
+    input:
+    path bed           // 捕获区域 BED 文件
+    path annotate      // 注释文件 refFlat.txt (可选)
+
+    output:
+    path "targets.bed", emit: target
+    path "versions.yml", emit: versions
+
+    when:
+    task.ext.when == null || task.ext.when
+
+    script:
+    def args = task.ext.args ?: ''
+    def avg_size = params.cnvkit_target_avg_size ?: 267
+    def annotate_cmd = annotate.name != 'NO_FILE' ? "--annotate ${annotate}" : ''
+    """
+    cnvkit.py target \\
+        ${bed} \\
+        ${annotate_cmd} \\
+        --avg-size ${avg_size} \\
+        --output targets.bed \\
+        ${args}
+
+    cat <<-END_VERSIONS > versions.yml
+    "${task.process}":
+        cnvkit: \$(cnvkit.py version | sed 's/cnvkit //')
+    END_VERSIONS
+    """
+}
+
+/*
+ * CNVKIT_ANTITARGET - 生成反目标区域 BED
+ *
+ * 功能：根据 target BED 生成 antitarget 区域
+ * 说明：antitarget 用于校正 GC 偏差和背景噪声
+ */
+process CNVKIT_ANTITARGET {
+    tag "antitarget"
+    label 'process_low'
+
+    input:
+    path targets       // target BED 文件
+    path access        // 可访问区域 BED (可选)
+
+    output:
+    path "antitargets.bed", emit: antitarget
+    path "versions.yml"   , emit: versions
+
+    when:
+    task.ext.when == null || task.ext.when
+
+    script:
+    def args = task.ext.args ?: ''
+    def access_cmd = access.name != 'NO_FILE' ? "--access ${access}" : ''
+    def avg_size = params.cnvkit_antitarget_avg_size ?: 100000
+    """
+    cnvkit.py antitarget \\
+        ${targets} \\
+        ${access_cmd} \\
+        --avg-size ${avg_size} \\
+        --output antitargets.bed \\
+        ${args}
+
+    cat <<-END_VERSIONS > versions.yml
+    "${task.process}":
+        cnvkit: \$(cnvkit.py version | sed 's/cnvkit //')
+    END_VERSIONS
+    """
+}
+
+/*
+ * CNVKIT_COVERAGE - 计算单样本覆盖度
+ *
+ * 功能：计算单个样本在 target 和 antitarget 区域的覆盖度
+ * 输出：*.targetcoverage.cnn 和 *.antitargetcoverage.cnn
+ */
+process CNVKIT_COVERAGE {
+    tag "$meta.id"
+    label 'process_medium'
+
+    input:
+    tuple val(meta), path(alignment), path(alignment_index)
+    path  fasta
+    path  fasta_fai
+    path  targets
+    path  antitargets
+
+    output:
+    tuple val(meta), path("*.targetcoverage.cnn")    , emit: target_coverage
+    tuple val(meta), path("*.antitargetcoverage.cnn"), emit: antitarget_coverage
+    path "versions.yml"                              , emit: versions
+
+    when:
+    task.ext.when == null || task.ext.when
+
+    script:
+    def args = task.ext.args ?: ''
+    def prefix = task.ext.prefix ?: "${meta.id}"
+    def ref_cmd = alignment.name.endsWith('.cram') ? "--fasta ${fasta}" : ''
+    """
+    # 计算 target 区域覆盖度
+    cnvkit.py coverage \\
+        ${alignment} \\
+        ${targets} \\
+        ${ref_cmd} \\
+        --processes ${task.cpus} \\
+        --output ${prefix}.targetcoverage.cnn \\
+        ${args}
+
+    # 计算 antitarget 区域覆盖度
+    cnvkit.py coverage \\
+        ${alignment} \\
+        ${antitargets} \\
+        ${ref_cmd} \\
+        --processes ${task.cpus} \\
+        --output ${prefix}.antitargetcoverage.cnn \\
+        ${args}
+
+    cat <<-END_VERSIONS > versions.yml
+    "${task.process}":
+        cnvkit: \$(cnvkit.py version | sed 's/cnvkit //')
+    END_VERSIONS
+    """
+}
 
 /*
  * CNVKIT_REFERENCE - 构建参考基线
