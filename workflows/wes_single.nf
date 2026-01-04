@@ -2,29 +2,18 @@
  * WES Single Sample Pipeline - Complete Workflow
  *
  * 功能：全外显子测序单样本分析流程
- * 包含：质控、比对、变异检测、注释、CNV、STR 等
+ * 包含：质控、比对、变异检测、注释、CNV、STR、线粒体等
  *
- * 输出目录结构 (每个样本一个目录):
- * results/
+ * 输出目录结构 (简化版):
+ * ${params.outdir}/
  * └── {sample_id}/
- *     ├── 01_fastp/          # 质控报告
- *     ├── 02_alignment/      # 比对结果 (sorted.cram -> marked.cram)
- *     ├── 03_markdup/        # 去重统计
- *     ├── 04_coverage/       # 覆盖度统计
- *     ├── 05_sex_check/      # 性别检查
- *     ├── 06_deepvariant/    # SNP/INDEL 变异检测
- *     ├── 07_whatshap/       # 单倍型分相 (WhatsHap)
- *     ├── 07_vep/            # 变异注释
- *     ├── 07_genmod/         # 遗传模式注释 (genmod)
- *     ├── 08_str/            # STR 检测 (ExpansionHunter)
- *     ├── 09_str/            # STR 注释 (stranger)
- *     ├── 09b_str/           # STR 遗传模式注释 (genmod)
- *     ├── 10_cnv/            # CNV 检测
- *     ├── 11_plink2/         # 基因型分析
- *     ├── 12_roh/            # ROH 分析
- *     ├── 13_phasing/        # Phasing 统计
- *     ├── 14_slivar/         # 变异过滤 (slivar)
- *     └── 15_svdb/           # CNV/SV 注释 (SVDB)
+ *     ├── 01_qc/              # 质控报告 (fastp, coverage, sex_check, metrics)
+ *     ├── 02_alignment/       # 比对结果 (cram files)
+ *     └── 03_variants/        # 突变结果 (all VCF/BCF files, 藏在子目录)
+ *         ├── snv_indel/      # SNP/INDEL (deepvariant, whatshap, vep, genmod, plink2, bcftools, slivar)
+ *         ├── mt/             # 线粒体 (mutect2_mt)
+ *         ├── str/            # STR (expansionhunter, stranger)
+ *         └── cnv/            # CNV (cnvkit, svdb)
  *
  * 存储策略:
  *   1. BWA 比对产生 sorted.cram 发布到 02_alignment/
@@ -79,6 +68,9 @@ include { SVDB_QUERY } from '../modules/local/svdb/main'
 
 // STR Annotation
 include { STRANGER } from '../modules/local/stranger/main'
+
+// Mitochondrial Analysis
+include { GATK_MUTECT2_MT } from '../modules/local/gatk/main'
 
 // Genetic Model Annotation
 include { GENMOD_MODELS } from '../modules/local/genmod/main'
@@ -142,6 +134,11 @@ workflow WES_SINGLE {
     genmod_split_variants = true              // 拆分多等位基因
     genmod_phased = true                      // 输入已定相
     genmod_strict = false                     // 严格模式
+    // 线粒体分析参数
+    ch_mt_fasta = Channel.value(file('NO_FILE'))  // 线粒体参考序列
+    ch_mt_fasta_fai = Channel.value(file('NO_FILE'))  // 线粒体参考索引
+    ch_mt_dict = Channel.value(file('NO_FILE'))  // 线粒体序列字典
+    ch_mt_intervals = Channel.value(file('NO_FILE'))  // 线粒体区域 interval_list
     genome_assembly    = 'GRCh38'              // 基因组版本
 
     main:
@@ -219,6 +216,22 @@ workflow WES_SINGLE {
         !ch_target_bed.isEmpty() ? ch_target_bed : Channel.empty()
     )
     ch_versions = ch_versions.mix(DEEPVARIANT.out.versions.first())
+
+    // =========================================================================
+    // Step 6b: GATK MUTECT2 - Mitochondrial Variant Calling
+    // =========================================================================
+    if (!ch_mt_fasta.isEmpty()) {
+        GATK_MUTECT2_MT(
+            GATK_MARKDUPLICATES.out.alignment,
+            ch_mt_fasta,
+            ch_mt_fasta_fai,
+            ch_mt_dict,
+            ch_mt_intervals
+        )
+        ch_versions = ch_versions.mix(GATK_MUTECT2_MT.out.versions.first())
+    } else {
+        ch_mt_vcf = Channel.empty()
+    }
 
     // =========================================================================
     // Step 7: WHATSHAP - Haplotype Phasing
@@ -442,6 +455,10 @@ workflow WES_SINGLE {
     deepvariant_vcf = DEEPVARIANT.out.vcf
     deepvariant_gvcf = DEEPVARIANT.out.gvcf
     deepvariant_report = DEEPVARIANT.out.report
+
+    // Mitochondrial variants
+    mt_vcf = GATK_MUTECT2_MT.out.vcf
+    mt_stats = GATK_MUTECT2_MT.out.stats
 
     // Phased variants (WhatsHap)
     whatshap_vcf = WHATSHAP_PHASE.out.vcf
