@@ -15,8 +15,10 @@
  *     ├── 06_deepvariant/    # SNP/INDEL 变异检测
  *     ├── 07_whatshap/       # 单倍型分相 (WhatsHap)
  *     ├── 07_vep/            # 变异注释
+ *     ├── 07_genmod/         # 遗传模式注释 (genmod)
  *     ├── 08_str/            # STR 检测 (ExpansionHunter)
  *     ├── 09_str/            # STR 注释 (stranger)
+ *     ├── 09b_str/           # STR 遗传模式注释 (genmod)
  *     ├── 10_cnv/            # CNV 检测
  *     ├── 11_plink2/         # 基因型分析
  *     ├── 12_roh/            # ROH 分析
@@ -78,6 +80,13 @@ include { SVDB_QUERY } from '../modules/local/svdb/main'
 // STR Annotation
 include { STRANGER } from '../modules/local/stranger/main'
 
+// Genetic Model Annotation
+include { GENMOD_MODELS } from '../modules/local/genmod/main'
+include { GENMOD_ANNOTATE } from '../modules/local/genmod/main'
+include { GENMOD_SORT } from '../modules/local/genmod/main'
+include { GENMOD_MODELS as GENMOD_MODELS_SNP } from '../modules/local/genmod/main'
+include { GENMOD_MODELS as GENMOD_MODELS_STR } from '../modules/local/genmod/main'
+
 
 // ============================================================================
 // Workflow Definition
@@ -128,6 +137,11 @@ workflow WES_SINGLE {
     // Stranger 参数
     ch_stranger_repeats = Channel.value(file('NO_FILE'))  // STR 重复定义 JSON
     stranger_family_id = ''                   // 家族 ID
+    // GenMod 参数
+    ch_genmod_ped = Channel.value(file('NO_FILE'))  // PED 家系文件
+    genmod_split_variants = true              // 拆分多等位基因
+    genmod_phased = true                      // 输入已定相
+    genmod_strict = false                     // 严格模式
     genome_assembly    = 'GRCh38'              // 基因组版本
 
     main:
@@ -242,6 +256,18 @@ workflow WES_SINGLE {
     ch_versions = ch_versions.mix(VEP.out.versions.first())
 
     // =========================================================================
+    // Step 8b: GENMOD - Genetic Model Annotation (在 VEP 之后)
+    // =========================================================================
+    GENMOD_MODELS_SNP(
+        VEP.out.vcf,
+        ch_genmod_ped,
+        genmod_split_variants,
+        genmod_phased,
+        genmod_strict
+    )
+    ch_versions = ch_versions.mix(GENMOD_MODELS_SNP.out.versions.first())
+
+    // =========================================================================
     // Step 9: EXPANSIONHUNTER - STR Detection
     // =========================================================================
     if (!ch_variant_catalog.isEmpty()) {
@@ -263,6 +289,18 @@ workflow WES_SINGLE {
             false
         )
         ch_versions = ch_versions.mix(STRANGER.out.versions.first())
+
+        // =========================================================================
+        // Step 9c: GENMOD - STR Genetic Model Annotation (在 Stranger 之后)
+        // =========================================================================
+        GENMOD_MODELS_STR(
+            STRANGER.out.vcf,
+            ch_genmod_ped,
+            genmod_split_variants,
+            genmod_phased,
+            genmod_strict
+        )
+        ch_versions = ch_versions.mix(GENMOD_MODELS_STR.out.versions.first())
     } else {
         ch_expansionhunter_out = Channel.empty()
     }
@@ -411,12 +449,18 @@ workflow WES_SINGLE {
     // Annotated variants
     vep_vcf = VEP.out.vcf
 
+    // GenMod annotated variants (SNP/INDEL)
+    genmod_vcf = GENMOD_MODELS_SNP.out.vcf
+
     // STR
     str_vcf = !ch_expansionhunter_out.isEmpty() ? ch_expansionhunter_out.vcf : Channel.empty()
     str_json = !ch_expansionhunter_out.isEmpty() ? ch_expansionhunter_out.json : Channel.empty()
 
     // STR annotated (stranger)
     str_annotated_vcf = STRANGER.out.vcf
+
+    // STR GenMod annotated
+    str_genmod_vcf = !ch_expansionhunter_out.isEmpty() ? GENMOD_MODELS_STR.out.vcf : Channel.empty()
 
     // CNV
     cnv_cnr = !ch_cnvkit_out.isEmpty() ? ch_cnvkit_out.cnr : Channel.empty()
