@@ -7,8 +7,7 @@
  * 说明：
  *   - 支持复杂过滤表达式
  *   - 支持 gnomAD 等数据库快速注释
- *   - 支持家系 (trio/family) 分析
- *   - 支持 de novo、复合杂合子检测
+ *   - 支持变异过滤、注释
  */
 
 process SLIVAR_EXPR {
