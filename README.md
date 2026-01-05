@@ -71,9 +71,14 @@ docker run --rm -it \
 
 ```
 results/
-├── fastp/                  # 质控报告 (JSON/HTML)
-├── alignment/              # 比对结果 (CRAM/CRAI)
-├── markdup/                # 去重统计 (metrics.txt)
+└── {sample_id}/
+    ├── 01_qc/              # 质控报告 (fastp, sex_check, coverage, metrics)
+    ├── 02_alignment/       # 比对结果 (CRAM/CRAI)
+    └── 03_variants/        # 变异结果
+        ├── snv_indel/      # SNP/INDEL (DeepVariant, VEP, GenMod, Slivar)
+        ├── mt/             # 线粒体变异 (Mutect2)
+        ├── str/            # STR (ExpansionHunter, Stranger)
+        └── cnv/            # CNV (CNVkit)
 └── pipeline_info/          # 流程报告 (timeline/report/trace)
 ```
 

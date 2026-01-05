@@ -1,0 +1,6 @@
+sample_id,bam,bai
+normal001,/data/bam/normal001.cram,/data/bam/normal001.cram.crai
+normal002,/data/bam/normal002.cram,/data/bam/normal002.cram.crai
+normal003,/data/bam/normal003.cram,/data/bam/normal003.cram.crai
+normal004,/data/bam/normal004.cram,/data/bam/normal004.cram.crai
+normal005,/data/bam/normal005.cram,/data/bam/normal005.cram.crai

@@ -167,11 +167,13 @@ process GATK_LEFTALIGNANDTRIMVARIANTS {
 
 /*
  * Mutect2 - 线粒体变异检测模式
- * 
+ *
  * 针对线粒体特点优化：
  *   - 启用 --mitochondria-mode (自动调整参数适配 mtDNA)
  *   - 不使用 tumor/normal 配对模式
  *   - 支持低频异质性变异检测
+ *
+ * 注意：使用主参考基因组（如GRCh38），无需单独指定mt参考
  */
 process GATK_MUTECT2_MT {
     tag "$meta.id"
@@ -179,10 +181,8 @@ process GATK_MUTECT2_MT {
 
     input:
     tuple val(meta), path(alignment), path(alignment_index)  // BAM/CRAM 及其索引 (.bai/.crai)
-    path  fasta          // 线粒体参考序列
-    path  fasta_fai
-    path  dict
-    path  intervals      // 可选，线粒体区域 interval_list
+    path  fasta          // 参考基因组（包含线粒体序列）
+    path  fasta_fai      // 参考基因组索引
 
     output:
     tuple val(meta), path("*.vcf.gz"), path("*.vcf.gz.tbi"), emit: vcf

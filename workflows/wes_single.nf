@@ -58,6 +58,9 @@ include { PLINK2_VCF_TO_PLINK } from '../modules/local/plink2/main'
 include { BCFTOOLS_ROH } from '../modules/local/bcftools/main'
 include { BCFTOOLS_STATS } from '../modules/local/bcftools/main'
 
+// Sample Identity / Fingerprint
+include { SAMPLE_FINGERPRINT } from '../modules/local/sample_identity/main'
+
 // Variant Filtering
 include { SLIVAR_EXPR } from '../modules/local/slivar/main'
 include { SLIVAR_COMPOUND_HETS } from '../modules/local/slivar/main'
@@ -131,16 +134,14 @@ workflow WES_SINGLE {
     // Stranger 参数
     ch_stranger_repeats = Channel.value(file('NO_FILE'))  // STR 重复定义 JSON
     stranger_family_id = ''                   // 家族 ID
+    enable_mt_analysis = true                 // 是否开启线粒体分析（使用主参考基因组）
+    // Sample Fingerprint 参数
+    ch_snp_panel = Channel.value(file('NO_FILE'))  // 样本识别 SNP 位点 VCF
     // GenMod 参数
     ch_genmod_ped = Channel.value(file('NO_FILE'))  // PED 家系文件
     genmod_split_variants = true              // 拆分多等位基因
     genmod_phased = true                      // 输入已定相
     genmod_strict = false                     // 严格模式
-    // 线粒体分析参数
-    ch_mt_fasta = Channel.value(file('NO_FILE'))  // 线粒体参考序列
-    ch_mt_fasta_fai = Channel.value(file('NO_FILE'))  // 线粒体参考索引
-    ch_mt_dict = Channel.value(file('NO_FILE'))  // 线粒体序列字典
-    ch_mt_intervals = Channel.value(file('NO_FILE'))  // 线粒体区域 interval_list
     genome_assembly    = 'GRCh38'              // 基因组版本
 
     main:
@@ -220,15 +221,27 @@ workflow WES_SINGLE {
     ch_versions = ch_versions.mix(DEEPVARIANT.out.versions.first())
 
     // =========================================================================
-    // Step 6b: GATK MUTECT2 - Mitochondrial Variant Calling
+    // Step 6b: SAMPLE_FINGERPRINT - Sample Identity Verification
     // =========================================================================
-    if (!ch_mt_fasta.isEmpty()) {
+    if (!ch_snp_panel.isEmpty()) {
+        SAMPLE_FINGERPRINT(
+            DEEPVARIANT.out.vcf,
+            ch_snp_panel
+        )
+        ch_versions = ch_versions.mix(SAMPLE_FINGERPRINT.out.versions.first())
+    } else {
+        ch_fingerprint_vcf = Channel.empty()
+        ch_fingerprint_txt = Channel.empty()
+    }
+
+    // =========================================================================
+    // Step 6c: GATK MUTECT2 - Mitochondrial Variant Calling
+    // =========================================================================
+    if (enable_mt_analysis) {
         GATK_MUTECT2_MT(
             GATK_MARKDUPLICATES.out.alignment,
-            ch_mt_fasta,
-            ch_mt_fasta_fai,
-            ch_mt_dict,
-            ch_mt_intervals
+            ch_fasta,
+            ch_fasta_fai
         )
         ch_versions = ch_versions.mix(GATK_MUTECT2_MT.out.versions.first())
 
@@ -458,6 +471,10 @@ workflow WES_SINGLE {
     deepvariant_vcf = DEEPVARIANT.out.vcf
     deepvariant_gvcf = DEEPVARIANT.out.gvcf
     deepvariant_report = DEEPVARIANT.out.report
+
+    // Sample Fingerprint
+    fingerprint_vcf = !ch_snp_panel.isEmpty() ? ch_fingerprint_vcf : Channel.empty()
+    fingerprint_txt = !ch_snp_panel.isEmpty() ? ch_fingerprint_txt : Channel.empty()
 
     // Mitochondrial variants
     mt_vcf = GATK_MUTECT2_MT.out.vcf

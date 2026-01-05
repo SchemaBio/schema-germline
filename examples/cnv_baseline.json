@@ -1,0 +1,12 @@
+{
+  "samples": "/data/cnv_baseline/samples.csv",
+  "reference": {
+    "fasta": "/reference/hg38.fa"
+  },
+  "target_bed": "/reference/targets.bed",
+
+  "annotate": "/reference/refFlat.txt",
+  "access_bed": "/reference/access.hg38.bed",
+
+  "outdir": "/results/cnv_baseline"
+}
