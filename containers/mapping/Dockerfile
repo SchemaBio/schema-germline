@@ -1,10 +1,10 @@
 # 1. 锁定上游官方版本
-FROM alpine:3.23.2
+FROM ubuntu:22.04
 
 # 2. 注入绳墨生物的"基因"
 LABEL maintainer="Schema Bio"
 LABEL vendor="Schema Bio"
-LABEL schema.version="20251225"
+LABEL schema.version="20260106"
 
 # 3. 版本号定义 - 方便后续更新
 ARG SAMTOOLS_VERSION=1.23
@@ -15,24 +15,26 @@ ARG BWA_MEM2_VERSION=2.3
 ARG MOSDEPTH_VERSION=0.3.12
 
 # Install necessary packages
-RUN apk update && \
-    apk add --no-cache \
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
     bash \
     vim \
     ca-certificates \
-    zlib-dev \
-    bzip2-dev \
+    zlib1g-dev \
+    libbz2-dev \
     wget \
-    build-base \
-    ncurses-dev \
-    xz-dev \
-    coreutils \
-    libdeflate \
-    isa-l \
+    unzip \
+    build-essential \
+    libncurses-dev \
+    xz-utils \
+    liblzma-dev \
+    libcurl4-openssl-dev \
+    libssl-dev \
     libdeflate-dev \
-    isa-l-dev \
-    util-linux \
-    libc6-compat
+    libtool \
+    autoconf \
+    automake \
+    git
 
 WORKDIR /software
 
@@ -74,7 +76,7 @@ RUN wget https://github.com/biod/sambamba/releases/download/v${SAMBAMBA_VERSION}
     ln -s /usr/local/bin/sambamba-${SAMBAMBA_VERSION}-linux-amd64-static /usr/local/bin/sambamba
 
 # bamdst
-RUN wget https://github.com/pzweuj/bamdst/archive/refs/heads/master.zip && \
+RUN wget https://github.com/shiquan/bamdst/archive/refs/heads/master.zip && \
     unzip master.zip && \
     cd bamdst-master && \
     make && \
@@ -82,14 +84,18 @@ RUN wget https://github.com/pzweuj/bamdst/archive/refs/heads/master.zip && \
     rm -rf /software/master.zip && \
     rm -rf /software/bamdst-master
 
-# fastp v1.0.1
-RUN wget https://github.com/OpenGene/fastp/archive/refs/heads/master.zip && \
-    unzip master.zip && \
-    cd fastp-master && \
-    make -j && \
-    make install && \
-    rm -rf /software/master.zip && \
-    rm -rf /software/fastp-master
+# xamdst
+RUN apt-get install -y libhts-dev pkg-config && \
+    git clone https://github.com/pzweuj/xamdst.git && \
+    cd xamdst && \
+    git pull && \
+    make && \
+    cp xamdst /usr/local/bin/ && \
+    rm -rf /software/xamdst
+
+# fastp - prebuilt binary
+RUN wget -O /usr/local/bin/fastp http://opengene.org/fastp/fastp && \
+    chmod a+x /usr/local/bin/fastp
 
 # bwa-mem2
 RUN wget https://github.com/bwa-mem2/bwa-mem2/releases/download/v${BWA_MEM2_VERSION}/bwa-mem2-${BWA_MEM2_VERSION}_x64-linux.tar.bz2 && \

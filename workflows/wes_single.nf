@@ -35,7 +35,7 @@ include { BWA_MEM2 } from '../modules/local/bwa_mem2/main'
 // Post-Alignment Processing
 include { GATK_MARKDUPLICATES } from '../modules/local/gatk/main'
 include { SEX_CHECK } from '../modules/local/sex_check/main'
-include { BAMDST } from '../modules/local/bamdst/main'
+include { XAMDST } from '../modules/local/xamdst/main'
 
 // Variant Calling
 include { DEEPVARIANT } from '../modules/local/deepvariant/main'
@@ -199,13 +199,13 @@ workflow WES_SINGLE {
     ch_versions = ch_versions.mix(SEX_CHECK.out.versions.first())
 
     // =========================================================================
-    // Step 5: BAMDST - Coverage Statistics
+    // Step 5: XAMDST - Coverage Statistics
     // =========================================================================
     if (!ch_target_bed.isEmpty()) {
-        BAMDST(GATK_MARKDUPLICATES.out.alignment, ch_target_bed, Channel.empty())
-        ch_versions = ch_versions.mix(BAMDST.out.versions.first())
+        XAMDST(GATK_MARKDUPLICATES.out.alignment, ch_target_bed, Channel.empty())
+        ch_versions = ch_versions.mix(XAMDST.out.versions.first())
     } else {
-        ch_bamdst_out = Channel.empty()
+        ch_xamdst_out = Channel.empty()
     }
 
     // =========================================================================
@@ -462,10 +462,10 @@ workflow WES_SINGLE {
     // QC
     sex_check = SEX_CHECK.out.result
     inferred_sex = SEX_CHECK.out.sex
-    coverage = !ch_bamdst_out.isEmpty() ? ch_bamdst_out.coverage_stat : Channel.empty()
-    coverage_stat = !ch_bamdst_out.isEmpty() ? ch_bamdst_out.coverage_stat : Channel.empty()
-    chromosome_stat = !ch_bamdst_out.isEmpty() ? ch_bamdst_out.chromosome_stat : Channel.empty()
-    region_stat = !ch_bamdst_out.isEmpty() ? ch_bamdst_out.region_stat : Channel.empty()
+    coverage = !ch_xamdst_out.isEmpty() ? ch_xamdst_out.coverage_stat : Channel.empty()
+    coverage_stat = !ch_xamdst_out.isEmpty() ? ch_xamdst_out.coverage_stat : Channel.empty()
+    chromosome_stat = !ch_xamdst_out.isEmpty() ? ch_xamdst_out.chromosome_stat : Channel.empty()
+    region_stat = !ch_xamdst_out.isEmpty() ? ch_xamdst_out.region_stat : Channel.empty()
 
     // Variants
     deepvariant_vcf = DEEPVARIANT.out.vcf

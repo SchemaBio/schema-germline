@@ -8,7 +8,7 @@
 - [2. 序列比对 (BWA-MEM2)](#2-序列比对-bwa-mem2)
 - [3. 标记重复 (GATK MarkDuplicates)](#3-标记重复-gatk-markduplicates)
 - [4. 性别检查 (SEX_CHECK)](#4-性别检查-sex_check)
-- [5. 覆盖度统计 (BAMDST)](#5-覆盖度统计-bamdst)
+- [5. 覆盖度统计 (XAMDST)](#5-覆盖度统计-xamdst)
 - [6. SNP/INDEL 变异检测 (DeepVariant)](#6-snpindel-变异检测-deepvariant)
 - [7. 样本指纹验证 (SAMPLE_FINGERPRINT)](#7-样本指纹验证-sample_fingerprint)
 - [8. 线粒体变异检测 (GATK Mutect2)](#8-线粒体变异检测-gatk-mutect2)
@@ -123,12 +123,12 @@ samtools view -c -F 2052 sample.cram "Y:2786355-2788241"
 
 ---
 
-## 5. 覆盖度统计 (BAMDST)
+## 5. 覆盖度统计 (XAMDST)
 
 ```bash
-bamdst \
-    --pifile ${target_bed} \
-    --bamfile ${alignment} \
+xamdst \
+    --target ${target_bed} \
+    --bam ${alignment} \
     --outdir ./coverage
 
 # 或使用 bedtools
@@ -514,7 +514,7 @@ BWA_MEM2 (比对)
 GATK_MARKDUPLICATES (标记重复) → samtools index (CRAM索引)
     ↓
     ├─→ SEX_CHECK (性别检查)
-    ├─→ BAMDST (覆盖度统计)
+    ├─→ XAMDST (覆盖度统计)
     ├─→ DEEPVARIANT (SNP/INDEL检测)
     │       ↓
     │   WHATSHAP_PHASE (单倍型定相)
@@ -570,7 +570,7 @@ PLINK2_VCF_TO_PLINK (基因型分析)
 
 | 工具 | 镜像 |
 |------|------|
-| FASTP/BWA/Samtools | `ghcr.io/pzweuj/mapping:2025dec` |
+| FASTP/BWA/Samtools/xamdst | `ghcr.io/pzweuj/mapping:2025dec` |
 | GATK (含 samtools) | `ghcr.io/pzweuj/gatk:4.6.2.0` |
 | DeepVariant | `google/deepvariant:1.6.0` |
 | VEP | `ensemblorg/ensembl-vep:release_112.0` |

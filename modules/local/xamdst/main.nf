@@ -1,12 +1,12 @@
 /*
- * Bamdst 覆盖度统计模块
+ * Xamdst 覆盖度统计模块
  *
  * 功能：WES/WGS 样本的覆盖度统计
- * 工具：bamdst
+ * 工具：xamdst (bamdst 的现代替代品，支持 CRAM 和多线程)
  * 输出：覆盖度报告、区域统计、UTR/外显子/基因覆盖度
  */
 
-process BAMDST {
+process XAMDST {
     tag "$meta.id"
     label 'process_medium'
 
@@ -32,10 +32,10 @@ process BAMDST {
     def args = task.ext.args ?: ''
     def prefix = task.ext.prefix ?: "${meta.id}"
     def target_param = target ? "--target ${target}" : ''
-    def depth_cutoff = params.bamdst_depth_cutoff ?: 10  // 默认 10X 覆盖度阈值
+    def depth_cutoff = params.xamdst_depth_cutoff ?: 10  // 默认 10X 覆盖度阈值
     """
-    # 运行 bamdst 分析
-    bamdst \
+    # 运行 xamdst 分析
+    xamdst \
         --threads ${task.cpus} \
         --name ${prefix} \
         ${target_param} \
@@ -52,24 +52,24 @@ process BAMDST {
     if [ -f "depth distribution.info" ]; then mv "depth distribution.info" "${prefix}.distribution.stat"; fi
     if [ -f "coverage_distrib.png" ]; then mv "coverage_distrib.png" "${prefix}.plot"; fi
 
-    # 保留原始命名（兼容 bamdst 默认输出）
+    # 保留原始命名（兼容 xamdst 默认输出）
     if [ ! -f "${prefix}.coverage.stat" ] && [ -f "coverage.report" ]; then
         cp coverage.report ${prefix}.coverage.stat
     fi
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":
-        bamdst: \$(bamdst --version 2>&1 | head -n1 || echo "unknown")
+        xamdst: \$(xamdst --version 2>&1 | head -n1 || echo "unknown")
     END_VERSIONS
     """
 }
 
 /*
- * BAMDST_EXTRACT_COVERAGE - 提取特定覆盖度信息
+ * XAMDST_EXTRACT_COVERAGE - 提取特定覆盖度信息
  *
- * 从 bamdst 输出中提取关键覆盖度指标用于报告
+ * 从 xamdst 输出中提取关键覆盖度指标用于报告
  */
-process BAMDST_EXTRACT_COVERAGE {
+process XAMDST_EXTRACT_COVERAGE {
     tag "$meta.id"
     label 'process_low'
 

@@ -4,7 +4,7 @@ Aggregate QC metrics from multiple sources into a comprehensive QC report.
 
 Aggregates data from:
 - fastp: JSON quality control reports
-- bamdst: Coverage statistics
+- xamdst: Coverage statistics
 - GATK MarkDuplicates: Duplicate and alignment metrics
 - Sex check: Sample sex verification
 - VEP/DeepVariant: Variant calling stats (if available)
@@ -45,8 +45,8 @@ def parse_fastp_json(json_file: Path) -> dict:
         return {}
 
 
-def parse_bamdst_coverage(coverage_file: Path) -> dict:
-    """Parse bamdst coverage.report and extract key metrics."""
+def parse_xamdst_coverage(coverage_file: Path) -> dict:
+    """Parse xamdst coverage.report and extract key metrics."""
     metrics = {}
     try:
         content = coverage_file.read_text()
@@ -71,12 +71,12 @@ def parse_bamdst_coverage(coverage_file: Path) -> dict:
                 elif value in ['No', 'no', 'FALSE', 'False']:
                     value = False
 
-                metrics[f'bamdst_{key}'] = value
+                metrics[f'xamdst_{key}'] = value
 
         # Extract sample_id from filename
         sample_id = coverage_file.name.replace('.coverage.stat', '').replace('.stat', '')
-        if not metrics.get('bamdst_sample_id'):
-            metrics['bamdst_sample_id'] = sample_id
+        if not metrics.get('xamdst_sample_id'):
+            metrics['xamdst_sample_id'] = sample_id
 
     except Exception as e:
         print(f"Warning: Failed to parse {coverage_file}: {e}", file=sys.stderr)
@@ -180,10 +180,10 @@ def aggregate_qc_results(input_dir: Path) -> list[dict]:
             results[sample_id] = results.get(sample_id, {})
             results[sample_id].update(sample_metrics)
 
-    # Parse bamdst coverage files
+    # Parse xamdst coverage files
     for cov_file in input_dir.rglob('*coverage.stat'):
-        sample_metrics = parse_bamdst_coverage(cov_file)
-        sample_id = sample_metrics.get('bamdst_sample_id')
+        sample_metrics = parse_xamdst_coverage(cov_file)
+        sample_id = sample_metrics.get('xamdst_sample_id')
         if sample_id:
             results[sample_id] = results.get(sample_id, {})
             results[sample_id].update(sample_metrics)
