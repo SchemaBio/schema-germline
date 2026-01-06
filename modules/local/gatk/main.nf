@@ -40,6 +40,8 @@ process GATK_CREATESEQUENCEDICTIONARY {
 
 /*
  * MarkDuplicates - 标记/去除 PCR 重复
+ *
+ * 注意：GATK 4.6.x 输出 CRAM 时不自动生成索引，改用 samtools index
  */
 process GATK_MARKDUPLICATES {
     tag "$meta.id"
@@ -50,7 +52,7 @@ process GATK_MARKDUPLICATES {
     val   output_format   // 输出格式: 'cram' (默认) 或 'bam'
 
     output:
-    tuple val(meta), path("*.md.{cram,bam}"), path("*.md.{cram.crai,bam.bai}"), emit: alignment
+    tuple val(meta), path("*.md.{cram,bam}"), emit: alignment
     tuple val(meta), path("*.metrics.txt")                                   , emit: metrics
     path "versions.yml"                                                      , emit: versions
 
@@ -63,26 +65,25 @@ process GATK_MARKDUPLICATES {
     def format = output_format ?: 'cram'
     def output_file = format == 'cram' ? "${prefix}.md.cram" : "${prefix}.md.bam"
     def ref_cmd = format == 'cram' ? "--REFERENCE_SEQUENCE ${fasta_path}" : ''
+    def index_cmd = format == 'cram' ? "samtools index -@ ${task.cpus} ${output_file}" : ''
     """
     gatk MarkDuplicates \\
         --INPUT ${alignment} \\
         --OUTPUT ${output_file} \\
         --METRICS_FILE ${prefix}.metrics.txt \\
-        --CREATE_INDEX true \\
+        --CREATE_INDEX false \\
         ${ref_cmd} \\
         ${args}
 
-    # 重命名索引文件
-    if [ -f "${prefix}.md.bai" ]; then
-        mv ${prefix}.md.bai ${prefix}.md.bam.bai
-    fi
-    if [ -f "${prefix}.md.crai" ]; then
-        mv ${prefix}.md.crai ${prefix}.md.cram.crai
+    # 使用 samtools 生成 CRAM 索引
+    if [ "${format}" == "cram" ]; then
+        samtools index -@ ${task.cpus} ${output_file}
     fi
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":
         gatk: \$(gatk --version 2>&1 | grep -oP 'GATK v\\K[0-9.]+')
+        samtools: \$(samtools --version | head -n1 | sed 's/samtools //')
     END_VERSIONS
     """
 }

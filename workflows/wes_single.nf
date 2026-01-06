@@ -195,7 +195,7 @@ workflow WES_SINGLE {
     // =========================================================================
     // Step 4: SEX_CHECK - Sex Verification (based on SRY gene coverage)
     // =========================================================================
-    SEX_CHECK(GATK_MARKDUPLICATES.out.alignment, ch_fasta, ch_fasta_fai, genome_assembly)
+    SEX_CHECK(GATK_MARKDUPLICATES.out.alignment, genome_assembly)
     ch_versions = ch_versions.mix(SEX_CHECK.out.versions.first())
 
     // =========================================================================
@@ -456,7 +456,7 @@ workflow WES_SINGLE {
 
     // Alignment
     cram = GATK_MARKDUPLICATES.out.alignment
-    cram_index = GATK_MARKDUPLICATES.out.alignment.map { it[2] }
+    // Index 由 samtools 生成，与 cram 文件同目录同名加 .crai 后缀
     markdup_metrics = GATK_MARKDUPLICATES.out.metrics
 
     // QC

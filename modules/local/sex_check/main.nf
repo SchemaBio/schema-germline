@@ -1,9 +1,9 @@
 /*
  * 性别质控模块
- * 
+ *
  * 功能：通过 SRY 基因区域的 reads 覆盖判断样本性别
  * 工具：samtools
- * 
+ *
  * 说明：SRY 基因位于 Y 染色体，男性样本应有显著覆盖，女性样本几乎无覆盖
  *       支持 GRCh37 和 GRCh38 两种参考基因组
  */
@@ -11,7 +11,6 @@
 // SRY 基因坐标 (包含上下游 500bp 缓冲区)
 // GRCh37: Y:2654896-2655792
 // GRCh38: Y:2786855-2787741
-// 支持带 chr 前缀和不带 chr 前缀的染色体命名
 def SRY_REGIONS = [
     'GRCh37': [nochr: 'Y:2654396-2656292', chr: 'chrY:2654396-2656292'],
     'GRCh38': [nochr: 'Y:2786355-2788241', chr: 'chrY:2786355-2788241']
@@ -23,8 +22,6 @@ process SEX_CHECK {
 
     input:
     tuple val(meta), path(alignment), path(alignment_index)  // BAM/CRAM 及其索引
-    path  fasta
-    path  fasta_fai
     val   genome_assembly                                     // 'GRCh37' 或 'GRCh38'
 
     output:
@@ -42,13 +39,12 @@ process SEX_CHECK {
     def regions = SRY_REGIONS[assembly] ?: SRY_REGIONS['GRCh38']
     def sry_region_nochr = regions.nochr
     def sry_region_chr = regions.chr
-    def ref_cmd = alignment.name.endsWith('.cram') ? "--reference ${fasta}" : ''
     def declared_sex = meta.sex ?: 'unknown'
     // 阈值：reads 数 >= 10 判定为男性
     def threshold = params.sex_check_threshold ?: 10
     """
-    # 检测染色体命名方式 (通过查看 BAM/CRAM header)
-    CHR_STYLE=\$(samtools view -H ${ref_cmd} ${alignment} | grep -E "^@SQ.*SN:(chr)?[0-9XYM]" | head -1 | grep -o "SN:chr" || echo "")
+    # 检测染色体命名方式
+    CHR_STYLE=\$(samtools view -H ${alignment} 2>/dev/null | grep -E "^@SQ.*SN:(chr)?Y" | head -1 | grep -o "SN:chr" || echo "")
 
     if [ -n "\${CHR_STYLE}" ]; then
         SRY_REGION="${sry_region_chr}"
@@ -56,8 +52,9 @@ process SEX_CHECK {
         SRY_REGION="${sry_region_nochr}"
     fi
 
-    # 统计 SRY 区域的 reads 数
-    SRY_READS=\$(samtools view -c ${ref_cmd} ${alignment} \${SRY_REGION} 2>/dev/null || echo "0")
+    # 统计 SRY 区域的 reads 数（排除未比对 reads 和重复）
+    # -F 2052: 排除未比对的 reads (0x4) 和重复 reads (0x400)
+    SRY_READS=\$(samtools view -c -F 2052 ${alignment} \${SRY_REGION} 2>/dev/null || echo "0")
 
     # 性别推断
     if [ "\${SRY_READS}" -ge ${threshold} ]; then
