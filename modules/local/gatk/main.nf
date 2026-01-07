@@ -196,7 +196,21 @@ process GATK_MUTECT2_MT {
     script:
     def args = task.ext.args ?: ''
     def prefix = task.ext.prefix ?: "${meta.id}"
+    // 动态检测参考基因组中的线粒体染色体名称
+    // 可能命名为: MT, chrM, chrMT, M 等
+    def mt_chr = \$(samtools view -H ${fasta} 2>/dev/null | grep -E '@SQ.*(MT|chrM|chrMT|M)' | sed 's/.*SN://' | cut -f1 | head -1)
+    def interval_param = mt_chr ? "-L \${mt_chr}" : ""
     """
+    # 检测线粒体染色体名称
+    MT_CHR=\$(samtools view -H ${fasta} 2>/dev/null | grep -E '@SQ.*(MT|chrM|chrMT|M)' | head -1 | sed 's/.*SN://' | cut -f1)
+
+    if [ -z "\$MT_CHR" ]; then
+        echo "Warning: No mitochondrial chromosome found in reference" >&2
+        exit 1
+    fi
+
+    echo "Detected mitochondrial chromosome: \$MT_CHR"
+
     gatk Mutect2 \\
         --reference ${fasta} \\
         --input ${alignment} \\
@@ -204,7 +218,7 @@ process GATK_MUTECT2_MT {
         --mitochondria-mode \\
         --max-reads-per-alignment-start 0 \\
         --max-mnp-distance 0 \\
-        -L MT,chrM,chrMT,M \\
+        -L \$MT_CHR \\
         ${args}
 
     cat <<-END_VERSIONS > versions.yml
