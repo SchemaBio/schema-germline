@@ -28,8 +28,10 @@ process BWA_MEM {
     def read_group = meta.read_group ?: "@RG\\tID:${meta.id}\\tSM:${meta.id}\\tPL:ILLUMINA"
     def format = output_format ?: 'cram'
     def output_ext = format == 'cram' ? 'cram' : 'bam'
-    def sort_opts = format == 'cram' ? "--reference ${fasta} -O cram" : "-O bam"
-    
+    // samtools >= 1.17 默认输出 CRAM 3.1 版本，与 GATK 不兼容
+    // 使用 version=3.0 确保下游 GATK 流程可正常读取
+    def sort_opts = format == 'cram' ? "--reference ${fasta} -O cram --output-fmt-option version=3.0" : "-O bam"
+
     """
     bwa mem \\
         -t ${task.cpus} \\
@@ -80,8 +82,10 @@ process BWA_MEM2 {
     def read_group = meta.read_group ?: "@RG\\tID:${meta.id}\\tSM:${meta.id}\\tPL:ILLUMINA"
     def format = output_format ?: 'cram'
     def output_ext = format == 'cram' ? 'cram' : 'bam'
-    def sort_opts = format == 'cram' ? "--reference ${fasta} -O cram" : "-O bam"
-    
+    // samtools >= 1.17 默认输出 CRAM 3.1 版本，与 GATK 不兼容
+    // 使用 version=3.0 确保下游 GATK 流程可正常读取
+    def sort_opts = format == 'cram' ? "--reference ${fasta} -O cram --output-fmt-option version=3.0" : "-O bam"
+
     """
     bwa-mem2 mem \\
         -t ${task.cpus} \\
