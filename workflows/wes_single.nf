@@ -34,6 +34,7 @@ include { BWA_MEM2 } from '../modules/local/bwa_mem2/main'
 
 // Post-Alignment Processing
 include { GATK_MARKDUPLICATES } from '../modules/local/gatk/main'
+include { SAMTOOLS_INDEX } from '../modules/local/samtools/main'
 include { SEX_CHECK } from '../modules/local/sex_check/main'
 include { XAMDST } from '../modules/local/xamdst/main'
 
@@ -193,16 +194,22 @@ workflow WES_SINGLE {
     ch_versions = ch_versions.mix(GATK_MARKDUPLICATES.out.versions.first())
 
     // =========================================================================
+    // Step 3b: SAMTOOLS_INDEX - Create BAM/CRAM Index
+    // =========================================================================
+    SAMTOOLS_INDEX(GATK_MARKDUPLICATES.out.alignment)
+    ch_versions = ch_versions.mix(SAMTOOLS_INDEX.out.versions.first())
+
+    // =========================================================================
     // Step 4: SEX_CHECK - Sex Verification (based on SRY gene coverage)
     // =========================================================================
-    SEX_CHECK(GATK_MARKDUPLICATES.out.alignment, genome_assembly)
+    SEX_CHECK(SAMTOOLS_INDEX.out.alignment, genome_assembly)
     ch_versions = ch_versions.mix(SEX_CHECK.out.versions.first())
 
     // =========================================================================
     // Step 5: XAMDST - Coverage Statistics
     // =========================================================================
     if (!ch_target_bed.isEmpty()) {
-        XAMDST(GATK_MARKDUPLICATES.out.alignment, ch_target_bed, Channel.empty())
+        XAMDST(SAMTOOLS_INDEX.out.alignment, ch_target_bed, Channel.empty())
         ch_versions = ch_versions.mix(XAMDST.out.versions.first())
     } else {
         ch_xamdst_out = Channel.empty()
@@ -212,7 +219,7 @@ workflow WES_SINGLE {
     // Step 6: DEEPVARIANT - SNP/INDEL Variant Calling
     // =========================================================================
     DEEPVARIANT(
-        GATK_MARKDUPLICATES.out.alignment,
+        SAMTOOLS_INDEX.out.alignment,
         ch_fasta,
         ch_fasta_fai,
         'WES',
@@ -239,7 +246,7 @@ workflow WES_SINGLE {
     // =========================================================================
     if (enable_mt_analysis) {
         GATK_MUTECT2_MT(
-            GATK_MARKDUPLICATES.out.alignment,
+            SAMTOOLS_INDEX.out.alignment,
             ch_fasta,
             ch_fasta_fai
         )
@@ -265,7 +272,7 @@ workflow WES_SINGLE {
     // =========================================================================
     WHATSHAP_PHASE(
         DEEPVARIANT.out.vcf,
-        GATK_MARKDUPLICATES.out.alignment,
+        SAMTOOLS_INDEX.out.alignment,
         ch_fasta,
         ch_fasta_fai
     )
@@ -312,7 +319,7 @@ workflow WES_SINGLE {
     // =========================================================================
     if (!ch_variant_catalog.isEmpty()) {
         EXPANSIONHUNTER(
-            GATK_MARKDUPLICATES.out.alignment,
+            SAMTOOLS_INDEX.out.alignment,
             ch_fasta,
             ch_fasta_fai,
             ch_variant_catalog
@@ -350,7 +357,7 @@ workflow WES_SINGLE {
     // =========================================================================
     if (!ch_cnv_reference.isEmpty() && !ch_target_bed.isEmpty() && !ch_antitarget_bed.isEmpty()) {
         CNVKIT_CALL(
-            GATK_MARKDUPLICATES.out.alignment,
+            SAMTOOLS_INDEX.out.alignment,
             ch_fasta,
             ch_fasta_fai,
             ch_target_bed,
@@ -455,8 +462,7 @@ workflow WES_SINGLE {
     fastp_html = FASTP.out.html
 
     // Alignment
-    cram = GATK_MARKDUPLICATES.out.alignment
-    // Index 由 samtools 生成，与 cram 文件同目录同名加 .crai 后缀
+    cram = SAMTOOLS_INDEX.out.alignment
     markdup_metrics = GATK_MARKDUPLICATES.out.metrics
 
     // QC
