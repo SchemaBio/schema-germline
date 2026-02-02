@@ -470,6 +470,7 @@ workflow WES_SINGLE {
     inferred_sex = SEX_CHECK.out.sex
     coverage = !ch_xamdst_out.isEmpty() ? ch_xamdst_out.coverage_stat : Channel.empty()
     coverage_stat = !ch_xamdst_out.isEmpty() ? ch_xamdst_out.coverage_stat : Channel.empty()
+    coverage_json = !ch_xamdst_out.isEmpty() ? ch_xamdst_out.json : Channel.empty()
     chromosome_stat = !ch_xamdst_out.isEmpty() ? ch_xamdst_out.chromosome_stat : Channel.empty()
     region_stat = !ch_xamdst_out.isEmpty() ? ch_xamdst_out.region_stat : Channel.empty()
 
