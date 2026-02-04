@@ -6,7 +6,8 @@
  *
  * 说明：
  *   - 支持 RefSeq 转录本注释
- *   - 支持 ClinVar、InterVar、cytoBand 等内置自定义注释
+ *   - 支持 ClinVar、InterVar、gnomAD、dbSNP 等自定义注释
+ *   - 支持 AlphaMissense、EVOScore2、Pangolin 等插件
  *   - 支持 dbNSFP、SpliceAI 插件
  *   - 支持用户自定义 --custom 和 --plugin 参数
  *   - 支持 pick 模式 (只选择一个转录本) 或全部转录本
@@ -21,12 +22,24 @@ process VEP {
     path  fasta_fai
     path  cache                                 // VEP 缓存目录
     path  plugins                               // VEP 插件目录
+    // 自定义数据库 (VCF 格式)
     path  clinvar_vcf                           // ClinVar VCF (可选)
     path  clinvar_tbi
     path  intervar_vcf                          // InterVar VCF (可选)
     path  intervar_tbi
+    path  gnomad_vcf                            // gnomAD VCF (可选)
+    path  gnomad_tbi
+    path  dbsnp_vcf                             // dbSNP VCF (可选)
+    path  dbsnp_tbi
+    path  alphamissense_db                      // AlphaMissense DB (可选)
+    path  alphamissense_tbi
+    path  evoscore2_db                          // EVOScore2 DB (可选)
+    path  evoscore2_tbi
+    path  pangolin_db                           // Pangolin DB (可选)
+    path  pangolin_tbi
     path  cytoband_bed                          // cytoBand BED (可选)
     path  cytoband_tbi
+    // 插件数据库
     path  dbnsfp_db                             // dbNSFP 数据库 (可选)
     path  dbnsfp_tbi
     path  spliceai_snv                          // SpliceAI SNV (可选)
@@ -65,14 +78,28 @@ process VEP {
     // SpliceAI 字段
     def spliceai_fields = "SpliceAI_pred_DP_AG,SpliceAI_pred_DP_AL,SpliceAI_pred_DP_DG,SpliceAI_pred_DP_DL,SpliceAI_pred_DS_AG,SpliceAI_pred_DS_AL,SpliceAI_pred_DS_DG,SpliceAI_pred_DS_DL"
 
-    // 构建 custom 注释命令
+    // AlphaMissense 字段
+    def alphamissense_fields = "AlphaMissense_score,AlphaMissense_pred"
+
+    // EVOScore2 字段
+    def evoscore2_fields = "EVOScore2_score,EVOScore2_pred"
+
+    // Pangolin 字段
+    def pangolin_fields = "Pangolin_score,Pangolin_pred,Pangolin_rankscore"
+
+    // 构建 custom 注释命令 (VCF 格式数据库)
     def clinvar_cmd = clinvar_vcf.name != 'NO_FILE' ? "--custom file=${clinvar_vcf},short_name=ClinVar,format=vcf,type=exact,coords=0,fields=CLNSIG%CLNREVSTAT%CLNDN%CLNHGVS" : ''
     def intervar_cmd = intervar_vcf.name != 'NO_FILE' ? "--custom file=${intervar_vcf},short_name=InterVar,format=vcf,type=exact,coords=0,fields=Intervar" : ''
+    def gnomad_cmd = gnomad_vcf.name != 'NO_FILE' ? "--custom file=${gnomad_vcf},short_name=gnomAD,format=vcf,type=exact,coords=0,fields=AF%AF_eas%af_popmax" : ''
+    def dbsnp_cmd = dbsnp_vcf.name != 'NO_FILE' ? "--custom file=${dbsnp_vcf},short_name=dbSNP,format=vcf,type=exact,coords=0,fields=RS%CLNID%CLNREVSTAT" : ''
     def cytoband_cmd = cytoband_bed.name != 'NO_FILE' ? "--custom file=${cytoband_bed},short_name=cytoBand,format=bed,type=overlap,coords=0" : ''
 
     // 构建插件命令
     def dbnsfp_cmd = dbnsfp_db.name != 'NO_FILE' ? "--plugin dbNSFP,${dbnsfp_db},${dbnsfp_fields}" : ''
     def spliceai_cmd = (spliceai_snv.name != 'NO_FILE' && spliceai_indel.name != 'NO_FILE') ? "--plugin SpliceAI,snv=${spliceai_snv},indel=${spliceai_indel}" : ''
+    def alphamissense_cmd = alphamissense_db.name != 'NO_FILE' ? "--plugin AlphaMissense,${alphamissense_db},${alphamissense_fields}" : ''
+    def evoscore2_cmd = evoscore2_db.name != 'NO_FILE' ? "--plugin EVOScore2,${evoscore2_db},${evoscore2_fields}" : ''
+    def pangolin_cmd = pangolin_db.name != 'NO_FILE' ? "--plugin Pangolin,${pangolin_db},${pangolin_fields}" : ''
 
     // 用户自定义参数
     def user_custom_cmd = extra_custom ?: ''
@@ -114,9 +141,14 @@ process VEP {
         ${transcript_filter} \\
         ${clinvar_cmd} \\
         ${intervar_cmd} \\
+        ${gnomad_cmd} \\
+        ${dbsnp_cmd} \\
         ${cytoband_cmd} \\
         ${dbnsfp_cmd} \\
         ${spliceai_cmd} \\
+        ${alphamissense_cmd} \\
+        ${evoscore2_cmd} \\
+        ${pangolin_cmd} \\
         ${user_custom_cmd} \\
         ${user_plugin_cmd} \\
         ${args}

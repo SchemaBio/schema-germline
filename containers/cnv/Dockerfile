@@ -1,52 +1,44 @@
 # =============================================================================
-# Schema Germline - GATK Container
+# Schema Germline - CNV Container
 # =============================================================================
-# Purpose: GATK toolkit for variant calling and processing
-# Tools: GATK, samtools (for CRAM indexing)
-# Note: samtools is included because GATK outputs CRAM files requiring indexing
+# Purpose: Copy Number Variation analysis tools
+# Tools: CNVkit, Stranger, SVDB, bedtools
+# Note: samtools is included for VCF/BCF operations
 # =============================================================================
 
 # -----------------------------------------------------------------------------
 # Base Image
 # -----------------------------------------------------------------------------
-FROM ubuntu:22.04
+FROM python:3.11-slim
 
 LABEL maintainer="schemabio"
-LABEL description="GATK tools for schema-germline pipeline"
+LABEL description="CNV analysis tools for schema-germline pipeline"
 LABEL version="2.0.0"
 
 # -----------------------------------------------------------------------------
 # Version Definitions
 # -----------------------------------------------------------------------------
-ARG GATK_VERSION=4.6.2.0
+ARG CNVKIT_VERSION=0.9.10
+ARG STRANGER_VERSION=0.8.0
 ARG SAMTOOLS_VERSION=1.21
 
 ENV DEBIAN_FRONTEND=noninteractive \
-    JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64 \
-    GATK_HOME=/opt/gatk
-
-# -----------------------------------------------------------------------------
-# Install Java and Dependencies
-# -----------------------------------------------------------------------------
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    openjdk-17-jdk \
-    wget \
-    curl \
-    git \
-    ca-certificates \
-    && rm -rf /var/lib/apt/lists/*
+    PYTHONUNBUFFERED=1
 
 # =============================================================================
-# samtools (用于 CRAM 索引)
+# System Dependencies
 # =============================================================================
 RUN apt-get update && apt-get install -y --no-install-recommends \
+    # Build tools
     build-essential \
     gcc \
     g++ \
     make \
-    autoconf \
-    automake \
-    libtool \
+    wget \
+    curl \
+    git \
+    ca-certificates \
+    # samtools dependencies
     zlib1g-dev \
     libbz2-dev \
     liblzma-dev \
@@ -54,12 +46,16 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libssl-dev \
     libdeflate-dev \
     libncurses-dev \
-    wget \
-    && rm -rf /var/lib/apt/lists/*
+    # Other tools
+    tabix \
+    unzip \
+    && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
 WORKDIR /software
 
-# Build samtools from source
+# =============================================================================
+# samtools (用于 VCF/BCF 操作)
+# =============================================================================
 RUN wget -q https://github.com/samtools/samtools/releases/download/${SAMTOOLS_VERSION}/samtools-${SAMTOOLS_VERSION}.tar.bz2 && \
     tar -xjf samtools-${SAMTOOLS_VERSION}.tar.bz2 && \
     cd samtools-${SAMTOOLS_VERSION} && \
@@ -83,33 +79,77 @@ RUN wget -q https://github.com/samtools/htslib/releases/download/${SAMTOOLS_VERS
     rm -rf htslib-${SAMTOOLS_VERSION}*
 
 # =============================================================================
-# GATK
-# =============================================================================
-RUN wget -q https://github.com/broadinstitute/gatk/releases/download/${GATK_VERSION}/gatk-${GATK_VERSION}.zip && \
-    unzip -q gatk-${GATK_VERSION}.zip && \
-    mv gatk-${GATK_VERSION} /opt/gatk && \
-    chmod +x /opt/gatk/gatk && \
-    rm -rf gatk-${GATK_VERSION}.zip
-
-# =============================================================================
-# tabix + bgzip
+# bcftools (用于 VCF 操作)
 # =============================================================================
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    tabix \
+    autoconf \
+    automake \
+    libtool \
     && rm -rf /var/lib/apt/lists/*
+
+RUN wget -q https://github.com/samtools/bcftools/releases/download/${SAMTOOLS_VERSION}/bcftools-${SAMTOOLS_VERSION}.tar.bz2 && \
+    tar -xjf bcftools-${SAMTOOLS_VERSION}.tar.bz2 && \
+    cd bcftools-${SAMTOOLS_VERSION} && \
+    ./configure --prefix=/usr/local --with-htslib=/usr/local && \
+    make -j$(nproc) && \
+    make install && \
+    cd .. && \
+    rm -rf bcftools-${SAMTOOLS_VERSION}*
+
+# =============================================================================
+# Python Dependencies for CNVkit
+# =============================================================================
+RUN pip install --no-cache-dir --upgrade pip wheel setuptools && \
+    pip install --no-cache-dir \
+    numpy \
+    scipy \
+    pandas \
+    pysam \
+    pybedtools
+
+# =============================================================================
+# CNVkit
+# =============================================================================
+RUN pip install --no-cache-dir cnvkit==${CNVKIT_VERSION}
+
+# =============================================================================
+# Stranger (STR 重复次数注释)
+# =============================================================================
+RUN pip install --no-cache-dir stranger==${STRANGER_VERSION}
+
+# =============================================================================
+# SVDB (结构变异数据库注释和合并)
+# =============================================================================
+RUN pip install --no-cache-dir svdb
+
+# =============================================================================
+# bedtools (基因组区间操作)
+# =============================================================================
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    bedtools \
+    && rm -rf /var/lib/apt/lists/*
+
+# =============================================================================
+# R + DNAcopy (可选：用于分割算法)
+# =============================================================================
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    r-base \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN R -e "install.packages('DNAcopy', repos='https://cloud.r-project.org', quiet=TRUE)"
 
 # =============================================================================
 # Cleanup
 # =============================================================================
 RUN apt-get autoremove -y && \
     apt-get clean && \
-    rm -rf /var/lib/apt/lists/* /software/* /tmp/*
+    rm -rf /var/lib/apt/lists/* /software/*
 
 # =============================================================================
 # Environment
 # =============================================================================
-ENV PATH="/usr/local/bin:${GATK_HOME}:${PATH}" \
+ENV PATH="/usr/local/bin:${PATH}" \
     LD_LIBRARY_PATH="/usr/local/lib:${LD_LIBRARY_PATH}"
 
 WORKDIR /data
-ENTRYPOINT ["gatk"]
+CMD ["cnvkit"]

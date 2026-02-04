@@ -1,119 +1,201 @@
-# 1. 锁定上游官方版本
+# =============================================================================
+# Schema Germline - Mapping Container
+# =============================================================================
+# Purpose: Sequence alignment and QC tools
+# Tools: samtools, bcftools, bwa, bwa-mem2, fastp, mosdepth, bamdst, xamdst
+# Note: This image contains core bioinformatics tools used in multiple steps
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Base Image
+# -----------------------------------------------------------------------------
 FROM ubuntu:22.04
 
-# 2. 注入绳墨生物的"基因"
-LABEL maintainer="Schema Bio"
-LABEL vendor="Schema Bio"
-LABEL schema.version="20260106"
+LABEL maintainer="schemabio"
+LABEL description="Mapping tools for schema-germline pipeline"
+LABEL version="2.0.0"
 
-# 3. 版本号定义 - 方便后续更新
-ARG SAMTOOLS_VERSION=1.23
-ARG BCFTOOLS_VERSION=1.23
+# -----------------------------------------------------------------------------
+# Version Definitions
+# -----------------------------------------------------------------------------
+ARG SAMTOOLS_VERSION=1.21
+ARG BCFTOOLS_VERSION=1.21
 ARG BWA_VERSION=0.7.19
-ARG SAMBAMBA_VERSION=1.0.1
-ARG BWA_MEM2_VERSION=2.3
-ARG MOSDEPTH_VERSION=0.3.12
+ARG BWA_MEM2_VERSION=2.2.1
+ARG FASTP_VERSION=0.24.2
+ARG MOSDEPTH_VERSION=0.7.1
+ARG Sambamba_VERSION=1.0.2
 
-# Install necessary packages
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends \
-    bash \
-    vim \
-    ca-certificates \
+ENV DEBIAN_FRONTEND=noninteractive
+
+# -----------------------------------------------------------------------------
+# Install Build Dependencies
+# -----------------------------------------------------------------------------
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    gcc \
+    g++ \
+    make \
+    cmake \
+    autoconf \
+    automake \
+    libtool \
     zlib1g-dev \
     libbz2-dev \
-    wget \
-    unzip \
-    build-essential \
-    libncurses-dev \
-    xz-utils \
     liblzma-dev \
     libcurl4-openssl-dev \
     libssl-dev \
     libdeflate-dev \
-    libtool \
-    autoconf \
-    automake \
-    git
+    libncurses-dev \
+    wget \
+    curl \
+    git \
+    ca-certificates \
+    unzip \
+    pkg-config \
+    libhts-dev \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
 WORKDIR /software
 
-# samtools
-RUN wget https://github.com/samtools/samtools/releases/download/${SAMTOOLS_VERSION}/samtools-${SAMTOOLS_VERSION}.tar.bz2 && \
-    tar -jxvf samtools-${SAMTOOLS_VERSION}.tar.bz2 && \
-    rm samtools-${SAMTOOLS_VERSION}.tar.bz2 && \
+# =============================================================================
+# samtools (核心工具 - 会在多个镜像中重复)
+# =============================================================================
+RUN wget -q https://github.com/samtools/samtools/releases/download/${SAMTOOLS_VERSION}/samtools-${SAMTOOLS_VERSION}.tar.bz2 && \
+    tar -xjf samtools-${SAMTOOLS_VERSION}.tar.bz2 && \
     cd samtools-${SAMTOOLS_VERSION} && \
-    ./configure --prefix $(pwd) && \
-    make && \
-    cp samtools /usr/local/bin/ && \
-    rm -rf /software/samtools-${SAMTOOLS_VERSION}
+    ./configure --prefix=/usr/local --with-htslib=system && \
+    make -j$(nproc) && \
+    make install && \
+    cd .. && \
+    rm -rf samtools-${SAMTOOLS_VERSION}*
 
-# bcftools
-RUN wget https://github.com/samtools/bcftools/releases/download/${BCFTOOLS_VERSION}/bcftools-${BCFTOOLS_VERSION}.tar.bz2 && \
-    tar -jxvf bcftools-${BCFTOOLS_VERSION}.tar.bz2 && \
-    rm bcftools-${BCFTOOLS_VERSION}.tar.bz2 && \
+# =============================================================================
+# bcftools (核心工具 - 会在多个镜像中重复)
+# =============================================================================
+RUN wget -q https://github.com/samtools/bcftools/releases/download/${BCFTOOLS_VERSION}/bcftools-${BCFTOOLS_VERSION}.tar.bz2 && \
+    tar -xjf bcftools-${BCFTOOLS_VERSION}.tar.bz2 && \
     cd bcftools-${BCFTOOLS_VERSION} && \
-    ./configure --prefix $(pwd) && \
-    make && \
-    cp bcftools /usr/local/bin/ && \
-    rm -rf /software/bcftools-${BCFTOOLS_VERSION}
+    ./configure --prefix=/usr/local --with-htslib=system && \
+    make -j$(nproc) && \
+    make install && \
+    cd .. && \
+    rm -rf bcftools-${BCFTOOLS_VERSION}*
 
+# =============================================================================
+# htslib (samtools/bcftools 依赖)
+# =============================================================================
+RUN wget -q https://github.com/samtools/htslib/releases/download/${SAMTOOLS_VERSION}/htslib-${SAMTOOLS_VERSION}.tar.bz2 && \
+    tar -xjf htslib-${SAMTOOLS_VERSION}.tar.bz2 && \
+    cd htslib-${SAMTOOLS_VERSION} && \
+    autoreconf -i && \
+    ./configure --prefix=/usr/local --with-htslib=system && \
+    make -j$(nproc) && \
+    make install && \
+    cd .. && \
+    rm -rf htslib-${SAMTOOLS_VERSION}*
+
+# =============================================================================
 # bwa
-RUN wget https://github.com/lh3/bwa/archive/refs/tags/v${BWA_VERSION}.zip && \
-    unzip v${BWA_VERSION}.zip && \
+# =============================================================================
+RUN wget -q https://github.com/lh3/bwa/archive/refs/tags/v${BWA_VERSION}.tar.gz && \
+    tar -xzf v${BWA_VERSION}.tar.gz && \
     cd bwa-${BWA_VERSION} && \
-    make && \
+    make -j$(nproc) && \
     cp bwa /usr/local/bin/ && \
     cd .. && \
-    rm -rf /software/v${BWA_VERSION}.zip && \
-    rm -rf /software/bwa-${BWA_VERSION}
+    rm -rf bwa-${BWA_VERSION} v${BWA_VERSION}.tar.gz
 
-# sambamba
-RUN wget https://github.com/biod/sambamba/releases/download/v${SAMBAMBA_VERSION}/sambamba-${SAMBAMBA_VERSION}-linux-amd64-static.gz && \
-    gunzip sambamba-${SAMBAMBA_VERSION}-linux-amd64-static.gz && \
-    mv sambamba-${SAMBAMBA_VERSION}-linux-amd64-static /usr/local/bin/ && \
-    chmod 777 /usr/local/bin/sambamba-${SAMBAMBA_VERSION}-linux-amd64-static && \
-    ln -s /usr/local/bin/sambamba-${SAMBAMBA_VERSION}-linux-amd64-static /usr/local/bin/sambamba
+# =============================================================================
+# bwa-mem2
+# =============================================================================
+RUN wget -q https://github.com/bwa-mem2/bwa-mem2/releases/download/v${BWA_MEM2_VERSION}/bwa-mem2-${BWA_MEM2_VERSION}_x64-linux.tar.bz2 && \
+    tar -xjf bwa-mem2-${BWA_MEM2_VERSION}_x64-linux.tar.bz2 && \
+    cp bwa-mem2-${BWA_MEM2_VERSION}_x64-linux/bwa-mem2* /usr/local/bin/ && \
+    chmod 755 /usr/local/bin/bwa-mem2* && \
+    rm -rf bwa-mem2-${BWA_MEM2_VERSION}_x64-linux bwa-mem2-${BWA_MEM2_VERSION}_x64-linux.tar.bz2
 
-# bamdst
-RUN wget https://github.com/shiquan/bamdst/archive/refs/heads/master.zip && \
-    unzip master.zip && \
-    cd bamdst-master && \
+# =============================================================================
+# fastp
+# =============================================================================
+RUN wget -q http://opengene.org/fastp/fastp && \
+    chmod a+x fastp && \
+    mv fastp /usr/local/bin/
+
+# =============================================================================
+# mosdepth
+# =============================================================================
+RUN wget -q https://github.com/brentp/mosdepth/releases/download/v${MOSDEPTH_VERSION}/mosdepth && \
+    chmod a+x mosdepth && \
+    mv mosdepth /usr/local/bin/
+
+# =============================================================================
+# mosdepth d4 (optional, for coverage in specific formats)
+# =============================================================================
+RUN wget -q https://github.com/brentp/mosdepth/releases/download/v${MOSDEPTH_VERSION}/mosdepth_d4 && \
+    chmod a+x mosdepth_d4 && \
+    mv mosdepth_d4 /usr/local/bin/
+
+# =============================================================================
+# sambamba (备份去重工具)
+# =============================================================================
+RUN wget -q https://github.com/biod/sambamba/releases/download/v${Sambamba_VERSION}/sambamba-${Sambamba_VERSION}-linux-amd64-static.gz && \
+    gunzip sambamba-${Sambamba_VERSION}-linux-amd64-static.gz && \
+    mv sambamba-${Sambamba_VERSION}-linux-amd64-static /usr/local/bin/sambamba && \
+    chmod 755 /usr/local/bin/sambamba
+
+# =============================================================================
+# bamdst (覆盖度统计)
+# =============================================================================
+RUN apt-get update && apt-get install -y --no-install-recommends libhts-dev && \
+    rm -rf /var/lib/apt/lists/* && \
+    git clone --depth 1 https://github.com/shiquan/bamdst.git && \
+    cd bamdst && \
     make && \
     cp bamdst /usr/local/bin/ && \
-    rm -rf /software/master.zip && \
-    rm -rf /software/bamdst-master
+    cd .. && \
+    rm -rf bamdst
 
-# xamdst
-RUN apt-get install -y libhts-dev pkg-config && \
-    git clone https://github.com/pzweuj/xamdst.git && \
+# =============================================================================
+# xamdst (增强覆盖度统计)
+# =============================================================================
+RUN git clone --depth 1 https://github.com/pzweuj/xamdst.git && \
     cd xamdst && \
-    git pull && \
     make && \
     cp xamdst /usr/local/bin/ && \
-    rm -rf /software/xamdst
+    cd .. && \
+    rm -rf xamdst
 
-# fastp - prebuilt binary
-RUN wget -O /usr/local/bin/fastp http://opengene.org/fastp/fastp && \
-    chmod a+x /usr/local/bin/fastp
+# =============================================================================
+# tabix + bgzip (VCF 索引工具)
+# =============================================================================
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    tabix \
+    && rm -rf /var/lib/apt/lists/*
 
-# bwa-mem2
-RUN wget https://github.com/bwa-mem2/bwa-mem2/releases/download/v${BWA_MEM2_VERSION}/bwa-mem2-${BWA_MEM2_VERSION}_x64-linux.tar.bz2 && \
-    tar -jxvf bwa-mem2-${BWA_MEM2_VERSION}_x64-linux.tar.bz2 && \
-    mv bwa-mem2-${BWA_MEM2_VERSION}_x64-linux/bwa-mem2* /usr/local/bin/ && \
-    chmod 777 /usr/local/bin/bwa-mem2*
+# =============================================================================
+# Python + pybedtools (用于脚本)
+# =============================================================================
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    python3 \
+    python3-pip \
+    python3-dev \
+    && rm -rf /var/lib/apt/lists/*
 
-# mosdepth D4
-RUN wget https://github.com/brentp/mosdepth/releases/download/v${MOSDEPTH_VERSION}/mosdepth_d4 && \
-    mv mosdepth_d4 /usr/local/bin/ && \
-    chmod 777 /usr/local/bin/mosdepth_d4
+RUN pip3 install --no-cache-dir pybedtools
 
-# mosdepth
-RUN wget https://github.com/brentp/mosdepth/releases/download/v${MOSDEPTH_VERSION}/mosdepth && \
-    mv mosdepth /usr/local/bin/ && \
-    chmod 777 /usr/local/bin/mosdepth
+# =============================================================================
+# Cleanup
+# =============================================================================
+RUN apt-get autoremove -y && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/* && \
+    rm -rf /software/*
 
-# default command
-WORKDIR /usr/local/bin/
-ENV PATH="/usr/local/bin/:${PATH}"
+# =============================================================================
+# Environment
+# =============================================================================
+ENV PATH="/usr/local/bin:${PATH}"
+WORKDIR /data
 CMD ["/bin/bash"]

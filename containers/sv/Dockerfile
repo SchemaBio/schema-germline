@@ -1,9 +1,9 @@
 # =============================================================================
-# Schema Germline - GATK Container
+# Schema Germline - SV Container
 # =============================================================================
-# Purpose: GATK toolkit for variant calling and processing
-# Tools: GATK, samtools (for CRAM indexing)
-# Note: samtools is included because GATK outputs CRAM files requiring indexing
+# Purpose: Structural Variation detection tools
+# Tools: ExpansionHunter, Surf, Manta (optional)
+# Note: samtools is included for BAM/CRAM operations
 # =============================================================================
 
 # -----------------------------------------------------------------------------
@@ -12,41 +12,32 @@
 FROM ubuntu:22.04
 
 LABEL maintainer="schemabio"
-LABEL description="GATK tools for schema-germline pipeline"
+LABEL description="SV detection tools for schema-germline pipeline"
 LABEL version="2.0.0"
 
 # -----------------------------------------------------------------------------
 # Version Definitions
 # -----------------------------------------------------------------------------
-ARG GATK_VERSION=4.6.2.0
+ARG EXPANSIONHUNTER_VERSION=5.0.0
+ARG SURF_VERSION=2.0
 ARG SAMTOOLS_VERSION=1.21
 
-ENV DEBIAN_FRONTEND=noninteractive \
-    JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64 \
-    GATK_HOME=/opt/gatk
-
-# -----------------------------------------------------------------------------
-# Install Java and Dependencies
-# -----------------------------------------------------------------------------
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    openjdk-17-jdk \
-    wget \
-    curl \
-    git \
-    ca-certificates \
-    && rm -rf /var/lib/apt/lists/*
+ENV DEBIAN_FRONTEND=noninteractive
 
 # =============================================================================
-# samtools (用于 CRAM 索引)
+# System Dependencies
 # =============================================================================
 RUN apt-get update && apt-get install -y --no-install-recommends \
+    # Build tools
     build-essential \
     gcc \
     g++ \
     make \
+    cmake \
     autoconf \
     automake \
     libtool \
+    # samtools dependencies
     zlib1g-dev \
     libbz2-dev \
     liblzma-dev \
@@ -54,12 +45,21 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libssl-dev \
     libdeflate-dev \
     libncurses-dev \
+    libboost-all-dev \
+    # Other tools
     wget \
-    && rm -rf /var/lib/apt/lists/*
+    curl \
+    git \
+    ca-certificates \
+    unzip \
+    tabix \
+    && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
 WORKDIR /software
 
-# Build samtools from source
+# =============================================================================
+# samtools (用于 BAM/CRAM 操作)
+# =============================================================================
 RUN wget -q https://github.com/samtools/samtools/releases/download/${SAMTOOLS_VERSION}/samtools-${SAMTOOLS_VERSION}.tar.bz2 && \
     tar -xjf samtools-${SAMTOOLS_VERSION}.tar.bz2 && \
     cd samtools-${SAMTOOLS_VERSION} && \
@@ -83,33 +83,58 @@ RUN wget -q https://github.com/samtools/htslib/releases/download/${SAMTOOLS_VERS
     rm -rf htslib-${SAMTOOLS_VERSION}*
 
 # =============================================================================
-# GATK
+# ExpansionHunter (STR 检测)
 # =============================================================================
-RUN wget -q https://github.com/broadinstitute/gatk/releases/download/${GATK_VERSION}/gatk-${GATK_VERSION}.zip && \
-    unzip -q gatk-${GATK_VERSION}.zip && \
-    mv gatk-${GATK_VERSION} /opt/gatk && \
-    chmod +x /opt/gatk/gatk && \
-    rm -rf gatk-${GATK_VERSION}.zip
+RUN wget -q https://github.com/Illumina/ExpansionHunterDenovo/releases/download/v${EXPANSIONHUNTER_VERSION}/ExpansionHunterDenovo-v${EXPANSIONHUNTER_VERSION}-linux.tar.gz && \
+    tar -xzf ExpansionHunterDenovo-v${EXPANSIONHUNTER_VERSION}-linux.tar.gz && \
+    cp ExpansionHunterDenovo-v${EXPANSIONHUNTER_VERSION}-linux/ExpansionHunter* /usr/local/bin/ && \
+    chmod 755 /usr/local/bin/ExpansionHunter* && \
+    rm -rf ExpansionHunterDenovo-v${EXPANSIONHUNTER_VERSION}-linux*
 
 # =============================================================================
-# tabix + bgzip
+# Surf2 (STR 检测增强)
 # =============================================================================
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    tabix \
+    python3 \
+    python3-pip \
     && rm -rf /var/lib/apt/lists/*
+
+RUN pip3 install --no-cache-dir surf2==${SURF_VERSION}
+
+# =============================================================================
+# Manta (结构变异检测 - 可选，用于全基因组 SV)
+# =============================================================================
+ARG MANTA_VERSION=1.6.0
+RUN wget -q https://github.com/Illumina/manta/releases/download/v${MANTA_VERSION}/manta-${MANTA_VERSION}.centos6_x86_64.tar.gz && \
+    tar -xzf manta-${MANTA_VERSION}.centos6_x86_64.tar.gz && \
+    cp manta-${MANTA_VERSION}.centos6_x86_64/bin/manta* /usr/local/bin/ && \
+    cp -r manta-${MANTA_VERSION}.centos6_x86_64/lib /usr/local/ && \
+    chmod 755 /usr/local/bin/manta* && \
+    rm -rf manta-${MANTA_VERSION}.centos6_x86_64*
+
+# =============================================================================
+# Python + Biopython (用于脚本)
+# =============================================================================
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    python3 \
+    python3-pip \
+    python3-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN pip3 install --no-cache-dir biopython pybedtools
 
 # =============================================================================
 # Cleanup
 # =============================================================================
 RUN apt-get autoremove -y && \
     apt-get clean && \
-    rm -rf /var/lib/apt/lists/* /software/* /tmp/*
+    rm -rf /var/lib/apt/lists/* /software/*
 
 # =============================================================================
 # Environment
 # =============================================================================
-ENV PATH="/usr/local/bin:${GATK_HOME}:${PATH}" \
+ENV PATH="/usr/local/bin:${PATH}" \
     LD_LIBRARY_PATH="/usr/local/lib:${LD_LIBRARY_PATH}"
 
 WORKDIR /data
-ENTRYPOINT ["gatk"]
+CMD ["/bin/bash"]

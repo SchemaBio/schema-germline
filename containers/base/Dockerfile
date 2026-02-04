@@ -1,9 +1,9 @@
 # =============================================================================
-# Schema Germline - Base Environment for Glue Scripts
+# Schema Germline - Base Environment
 # =============================================================================
-# Purpose: Minimal environment for running auxiliary Python/R scripts
-# Note: Bioinformatics tools (samtools, bcftools, etc.) are handled by
-#       Nextflow module containers, not this base image
+# Purpose: Minimal Python environment for auxiliary scripts and glue code
+# Note: Bioinformatics tools (samtools, bcftools, etc.) are NOT included here
+#       They are handled by specialized containers to avoid duplication
 # =============================================================================
 
 # -----------------------------------------------------------------------------
@@ -11,9 +11,9 @@
 # -----------------------------------------------------------------------------
 FROM ubuntu:22.04 AS base
 
-LABEL maintainer="Schema Bio"
+LABEL maintainer="schemabio"
 LABEL description="Base environment for schema-germline pipeline glue scripts"
-LABEL version="1.0.0"
+LABEL version="2.0.0"
 
 # -----------------------------------------------------------------------------
 # Environment
@@ -21,13 +21,15 @@ LABEL version="1.0.0"
 ENV DEBIAN_FRONTEND=noninteractive \
     PIP_NO_CACHE_DIR=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1 \
-    PYTHONUNBUFFERED=1
+    PYTHONUNBUFFERED=1 \
+    LANG=C.UTF-8 \
+    LC_ALL=C.UTF-8
 
 # -----------------------------------------------------------------------------
 # Install Minimal Dependencies
 # -----------------------------------------------------------------------------
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    # Core utilities for scripts
+    # Core utilities
     wget \
     curl \
     git \
@@ -49,8 +51,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     python3 \
     python3-pip \
     python3-venv \
-    # Data formats (for config parsing)
+    python3-dev \
+    # Data formats
     jq \
+    yq \
+    # Other utilities
+    procps \
+    vim-tiny \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
@@ -59,22 +66,20 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # -----------------------------------------------------------------------------
 RUN python3 -m venv /opt/venv && \
     . /opt/venv/bin/activate && \
-    pip install --upgrade pip
+    pip install --upgrade pip wheel setuptools
 
 # -----------------------------------------------------------------------------
 # Install Python Packages
-# ----------------------------------------------------------------------------=
-COPY requirements.txt /tmp/requirements.txt
+# -----------------------------------------------------------------------------
+COPY containers/base/requirements.txt /tmp/requirements.txt
 
 RUN . /opt/venv/bin/activate && \
     pip install -r /tmp/requirements.txt && \
     rm /tmp/requirements.txt
 
 # -----------------------------------------------------------------------------
-# Copy Glue Scripts from project bin/
+# Copy Glue Scripts
 # -----------------------------------------------------------------------------
-# Context: Build from project root, e.g.:
-#   docker build -f containers/base/Dockerfile -t base .
 COPY bin/ /opt/scripts/
 RUN chmod +x /opt/scripts/*.py /opt/scripts/*.sh 2>/dev/null || true
 

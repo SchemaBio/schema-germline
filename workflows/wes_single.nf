@@ -112,10 +112,16 @@ workflow WES_SINGLE {
     ch_antitarget_bed  = Channel.empty()      // 反目标区域 BED
     ch_cnv_reference   = Channel.empty()      // CNV 参考基线
     ch_variant_catalog = Channel.empty()      // STR 位点目录
+    // VEP 参数
     ch_vep_cache       = Channel.empty()      // VEP 缓存
     ch_vep_plugins     = Channel.empty()      // VEP 插件
     ch_vep_clinvar     = Channel.empty()      // ClinVar VCF
     ch_vep_intervar    = Channel.empty()      // InterVar VCF
+    ch_vep_gnomad      = Channel.empty()      // gnomAD VCF
+    ch_vep_dbsnp       = Channel.empty()      // dbSNP VCF
+    ch_vep_alphamissense = Channel.empty()    // AlphaMissense DB
+    ch_vep_evoscore2   = Channel.empty()      // EVOScore2 DB
+    ch_vep_pangolin    = Channel.empty()      // Pangolin DB
     ch_ped_file        = Channel.value(file('NO_FILE'))  // PED 系谱文件
     ch_gnotate         = Channel.value(file('NO_FILE'))  // gnomad gnotate 文件
     ch_slivar_js       = Channel.value(file('NO_FILE'))  // slivar-functions.js
@@ -287,12 +293,20 @@ workflow WES_SINGLE {
         ch_fasta_fai,
         !ch_vep_cache.isEmpty() ? ch_vep_cache : Channel.value(file('NO_FILE')),
         !ch_vep_plugins.isEmpty() ? ch_vep_plugins : Channel.value(file('NO_FILE')),
+        // Custom VCF databases
         !ch_vep_clinvar.isEmpty() ? ch_vep_clinvar : Channel.value(file('NO_FILE')),
         Channel.value(file('NO_FILE')),
         !ch_vep_intervar.isEmpty() ? ch_vep_intervar : Channel.value(file('NO_FILE')),
+        !ch_vep_gnomad.isEmpty() ? ch_vep_gnomad : Channel.value(file('NO_FILE')),
+        !ch_vep_dbsnp.isEmpty() ? ch_vep_dbsnp : Channel.value(file('NO_FILE')),
+        // Plugin databases
+        !ch_vep_alphamissense.isEmpty() ? ch_vep_alphamissense : Channel.value(file('NO_FILE')),
         Channel.value(file('NO_FILE')),
+        !ch_vep_evoscore2.isEmpty() ? ch_vep_evoscore2 : Channel.value(file('NO_FILE')),
         Channel.value(file('NO_FILE')),
+        !ch_vep_pangolin.isEmpty() ? ch_vep_pangolin : Channel.value(file('NO_FILE')),
         Channel.value(file('NO_FILE')),
+        // Other databases
         Channel.value(file('NO_FILE')),
         Channel.value(file('NO_FILE')),
         Channel.value(file('NO_FILE')),
