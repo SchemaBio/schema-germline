@@ -29,6 +29,7 @@
 include { CNVKIT_TARGET } from '../modules/local/cnvkit/main'
 include { CNVKIT_ANTITARGET } from '../modules/local/cnvkit/main'
 include { CNVKIT_COVERAGE } from '../modules/local/cnvkit/main'
+include { CNVKIT_REFERENCE_BUILD } from '../modules/local/cnvkit/main'
 
 // ============================================================================
 // Workflow Definition
@@ -103,38 +104,4 @@ workflow CNV_BASELINE {
     target_bed     = CNVKIT_TARGET.out.target
     antitarget_bed = CNVKIT_ANTITARGET.out.antitarget
     versions       = ch_versions
-}
-
-// ============================================================================
-// 构建基线进程
-// ============================================================================
-
-process CNVKIT_REFERENCE_BUILD {
-    tag "reference"
-    label 'process_medium'
-
-    input:
-    path target_cnns       // *.targetcoverage.cnn 文件
-    path antitarget_cnns   // *.antitargetcoverage.cnn 文件
-    path fasta
-
-    output:
-    path "reference.cnn", emit: reference
-    path "versions.yml" , emit: versions
-
-    script:
-    def args = task.ext.args ?: ''
-    """
-    cnvkit.py reference \\
-        ${target_cnns} \\
-        ${antitarget_cnns} \\
-        --fasta ${fasta} \\
-        --output reference.cnn \\
-        ${args}
-
-    cat <<-END_VERSIONS > versions.yml
-    "${task.process}":
-        cnvkit: \$(cnvkit.py version | sed 's/cnvkit //')
-    END_VERSIONS
-    """
 }

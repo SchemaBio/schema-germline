@@ -66,20 +66,22 @@ All reference files must be pre-indexed:
 
 构建 CNVkit 参考基线，用于后续样本的 CNV 检测。
 
-### CSV Format (cnv_baseline.csv)
-
-```csv
-sample_id,bam,bai
-normal001,/path/to/normal001.cram,/path/to/normal001.cram.crai
-normal002,/path/to/normal002.cram,/path/to/normal002.cram.crai
-...
-```
-
 ### JSON Config (cnv_baseline.json)
 
 ```json
 {
-  "samples": "/path/to/cnv_baseline.csv",
+  "samples": [
+    {
+      "sample_id": "normal001",
+      "cram": "/path/to/normal001.cram",
+      "crai": "/path/to/normal001.cram.crai"
+    },
+    {
+      "sample_id": "normal002",
+      "bam": "/path/to/normal002.bam",
+      "bai": "/path/to/normal002.bam.bai"
+    }
+  ],
   "reference": {
     "fasta": "/path/to/reference/hg38.fa"
   },
@@ -90,11 +92,13 @@ normal002,/path/to/normal002.cram,/path/to/normal002.cram.crai
 }
 ```
 
-### Parameters
+### Sample Configuration
 
 | Parameter | Required | Description |
 |-----------|----------|-------------|
-| `samples` | Yes | Path to CSV file with sample list |
+| `samples[].sample_id` | Yes | Sample identifier |
+| `samples[].cram` / `bam` | Yes | Path to alignment file |
+| `samples[].crai` / `bai` | Yes | Path to alignment index |
 | `reference.fasta` | Yes | Reference genome FASTA |
 | `target_bed` | Yes | Target regions BED |
 | `annotate` | No | refFlat.txt for gene annotation |
@@ -129,3 +133,5 @@ docker run --rm -it \
 ├── antitargets.bed          # Anti-target regions
 └── reference.cnn            # CNV reference baseline
 ```
+
+> **提示**：推荐使用 5 个以上正常样本构建基线，以获得更稳定的结果。

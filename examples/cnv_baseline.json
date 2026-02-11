@@ -1,5 +1,21 @@
 {
-  "samples": "/data/cnv_baseline/samples.csv",
+  "samples": [
+    {
+      "sample_id": "normal1",
+      "cram": "/data/cnv_baseline/normal1.cram",
+      "crai": "/data/cnv_baseline/normal1.cram.crai"
+    },
+    {
+      "sample_id": "normal2",
+      "cram": "/data/cnv_baseline/normal2.cram",
+      "crai": "/data/cnv_baseline/normal2.cram.crai"
+    },
+    {
+      "sample_id": "normal3",
+      "bam": "/data/cnv_baseline/normal3.bam",
+      "bai": "/data/cnv_baseline/normal3.bam.bai"
+    }
+  ],
   "reference": {
     "fasta": "/reference/hg38.fa"
   },
