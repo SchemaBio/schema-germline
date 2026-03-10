@@ -16,60 +16,23 @@
  */
 
 /*
- * CNVKIT_TARGET - 准备目标区域 BED
+ * CNVKIT_INTERSECT - 用户 BED 与预制 target/antitarget 取交集
  *
- * 功能：将捕获区域 BED 转换为 CNVkit 优化的 target BED
- * 说明：分割大区域，可选添加基因注释
+ * 功能：使用 bedtools intersect 从预制的带注释 target/antitarget 中
+ *       提取与用户捕获区域重叠的区域
+ * 说明：预制文件已包含注释信息，无需再运行 cnvkit.py target/antitarget
  */
-process CNVKIT_TARGET {
-    tag "target"
+process CNVKIT_INTERSECT {
+    tag "intersect"
     label 'process_low'
 
     input:
-    path bed           // 捕获区域 BED 文件
-    path annotate      // 注释文件 refFlat.txt (可选)
+    path user_bed          // 用户捕获区域 BED
+    path prebuilt_target   // 预制 target BED (含注释)
+    path prebuilt_antitarget // 预制 antitarget BED (含注释)
 
     output:
-    path "targets.bed", emit: target
-    path "versions.yml", emit: versions
-
-    when:
-    task.ext.when == null || task.ext.when
-
-    script:
-    def args = task.ext.args ?: ''
-    def avg_size = params.cnvkit_target_avg_size ?: 267
-    def annotate_cmd = annotate.name != 'NO_FILE' ? "--annotate ${annotate}" : ''
-    """
-    cnvkit.py target \\
-        ${bed} \\
-        ${annotate_cmd} \\
-        --avg-size ${avg_size} \\
-        --output targets.bed \\
-        ${args}
-
-    cat <<-END_VERSIONS > versions.yml
-    "${task.process}":
-        cnvkit: \$(cnvkit.py version | sed 's/cnvkit //')
-    END_VERSIONS
-    """
-}
-
-/*
- * CNVKIT_ANTITARGET - 生成反目标区域 BED
- *
- * 功能：根据 target BED 生成 antitarget 区域
- * 说明：antitarget 用于校正 GC 偏差和背景噪声
- */
-process CNVKIT_ANTITARGET {
-    tag "antitarget"
-    label 'process_low'
-
-    input:
-    path targets       // target BED 文件
-    path access        // 可访问区域 BED (可选)
-
-    output:
+    path "targets.bed"    , emit: target
     path "antitargets.bed", emit: antitarget
     path "versions.yml"   , emit: versions
 
@@ -77,20 +40,13 @@ process CNVKIT_ANTITARGET {
     task.ext.when == null || task.ext.when
 
     script:
-    def args = task.ext.args ?: ''
-    def access_cmd = access.name != 'NO_FILE' ? "--access ${access}" : ''
-    def avg_size = params.cnvkit_antitarget_avg_size ?: 100000
     """
-    cnvkit.py antitarget \\
-        ${targets} \\
-        ${access_cmd} \\
-        --avg-size ${avg_size} \\
-        --output antitargets.bed \\
-        ${args}
+    bedtools intersect -a ${prebuilt_target} -b ${user_bed} > targets.bed
+    bedtools intersect -a ${prebuilt_antitarget} -b ${user_bed} > antitargets.bed
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":
-        cnvkit: \$(cnvkit.py version | sed 's/cnvkit //')
+        bedtools: \$(bedtools --version | sed 's/bedtools v//')
     END_VERSIONS
     """
 }

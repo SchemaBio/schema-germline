@@ -40,12 +40,6 @@ process VEP {
     path  cytoband_bed                          // cytoBand BED (可选)
     path  cytoband_tbi
     // 插件数据库
-    path  dbnsfp_db                             // dbNSFP 数据库 (可选)
-    path  dbnsfp_tbi
-    path  spliceai_snv                          // SpliceAI SNV (可选)
-    path  spliceai_snv_tbi
-    path  spliceai_indel                        // SpliceAI Indel (可选)
-    path  spliceai_indel_tbi
     path  extra_files                           // 用户自定义数据库文件 (可选，支持多个)
     val   extra_custom                          // 用户自定义 --custom 参数字符串
     val   extra_plugins                         // 用户自定义 --plugin 参数字符串
@@ -72,12 +66,6 @@ process VEP {
     def refseq_only = params.vep_refseq_only ?: false
     def transcript_filter = refseq_only ? '--transcript_filter "stable_id match N[MR]_"' : ''
 
-    // dbNSFP 字段
-    def dbnsfp_fields = "rs_dbSNP,gnomAD_exomes_AF,gnomAD_exomes_EAS_AF,gnomAD_exomes_POPMAX_AF,gnomAD_exomes_AC,gnomAD_exomes_nhomalt,ExAC_AC,ExAC_EAS_AF,1000Gp3_AF,1000Gp3_EAS_AF,REVEL_score,REVEL_rankscore,M-CAP_score,M-CAP_rankscore,M-CAP_pred,GERP++_RS,GERP++_RS_rankscore,MVP_score,MVP_rankscore,phyloP100way_vertebrate,phyloP100way_vertebrate_rankscore,phyloP470way_mammalian,phyloP470way_mammalian_rankscore"
-
-    // SpliceAI 字段
-    def spliceai_fields = "SpliceAI_pred_DP_AG,SpliceAI_pred_DP_AL,SpliceAI_pred_DP_DG,SpliceAI_pred_DP_DL,SpliceAI_pred_DS_AG,SpliceAI_pred_DS_AL,SpliceAI_pred_DS_DG,SpliceAI_pred_DS_DL"
-
     // AlphaMissense 字段
     def alphamissense_fields = "AlphaMissense_score,AlphaMissense_pred"
 
@@ -95,8 +83,6 @@ process VEP {
     def cytoband_cmd = cytoband_bed.name != 'NO_FILE' ? "--custom file=${cytoband_bed},short_name=cytoBand,format=bed,type=overlap,coords=0" : ''
 
     // 构建插件命令
-    def dbnsfp_cmd = dbnsfp_db.name != 'NO_FILE' ? "--plugin dbNSFP,${dbnsfp_db},${dbnsfp_fields}" : ''
-    def spliceai_cmd = (spliceai_snv.name != 'NO_FILE' && spliceai_indel.name != 'NO_FILE') ? "--plugin SpliceAI,snv=${spliceai_snv},indel=${spliceai_indel}" : ''
     def alphamissense_cmd = alphamissense_db.name != 'NO_FILE' ? "--plugin AlphaMissense,${alphamissense_db},${alphamissense_fields}" : ''
     def evoscore2_cmd = evoscore2_db.name != 'NO_FILE' ? "--plugin EVOScore2,${evoscore2_db},${evoscore2_fields}" : ''
     def pangolin_cmd = pangolin_db.name != 'NO_FILE' ? "--plugin Pangolin,${pangolin_db},${pangolin_fields}" : ''
@@ -144,8 +130,6 @@ process VEP {
         ${gnomad_cmd} \\
         ${dbsnp_cmd} \\
         ${cytoband_cmd} \\
-        ${dbnsfp_cmd} \\
-        ${spliceai_cmd} \\
         ${alphamissense_cmd} \\
         ${evoscore2_cmd} \\
         ${pangolin_cmd} \\
