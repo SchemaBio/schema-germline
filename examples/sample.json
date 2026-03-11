@@ -1,3 +1,10 @@
+/*
+ * WES_SINGLE 完整流程配置文件
+ *
+ * 使用方式:
+ *   nextflow run main.nf -profile docker --config examples/sample.json
+ */
+
 {
   "sample_id": "sample001",
   "read1": "/data/fastq/sample001_R1.fastq.gz",

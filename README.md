@@ -7,10 +7,27 @@
 ### 1. 环境要求
 
 - Docker
+- 自部署镜像已拉取（见下文）
 
-### 2. 准备配置文件
+### 2. 拉取镜像
 
-每个样本一个 JSON 文件，如 `sample1.json`:
+```bash
+# Nextflow 镜像
+docker pull docker.biotools.space/schemabio/nextflow:25.10.4
+
+# 流程依赖的其他镜像（自动按需拉取）
+docker pull docker.biotools.space/schemabio/mapping:2026Jan
+docker pull docker.biotools.space/schemabio/gatk:4.6.2.0
+docker pull docker.biotools.space/schemabio/cnvkit:v0.9.11.p4
+docker pull docker.biotools.space/schemabio/expansionhunter:5.0.0
+docker pull docker.biotools.space/schemabio/deepvariant:1.10.0
+docker pull docker.biotools.space/schemabio/ensembl-vep:release_115.2
+docker pull docker.biotools.space/schemabio/glnexus:v1.4.1
+```
+
+### 3. 准备配置文件
+
+每个样本一个 JSON 文件，如 `examples/sample.json`:
 
 ```json
 {
@@ -26,31 +43,66 @@
 
 > bwa/bwa-mem2 索引文件需与 fasta 同目录同前缀，无需单独配置。
 
-### 3. 运行流程
+### 4. 运行流程
+
+#### 完整流程 WES_SINGLE（默认）
 
 ```bash
 # 设置路径 (使用真实路径，不要用别名)
 WORKDIR=/mnt/d/analysis
-DATADIR=/mnt/d/data
-REFDIR=/mnt/d/reference
+PIPELINE_DIR=/path/to/schema-germline
 
-# 运行单个样本
 docker run --rm -it \
     -v /var/run/docker.sock:/var/run/docker.sock \
-    -v /path/to/schema-germline:/pipeline:ro \
+    -v ${PIPELINE_DIR}:/pipeline:ro \
     -v ${WORKDIR}:${WORKDIR} \
-    -v ${DATADIR}:${DATADIR} \
-    -v ${REFDIR}:${REFDIR} \
     -w ${WORKDIR} \
-    nextflow/nextflow:latest \
+    docker.biotools.space/schemabio/nextflow:25.10.4 \
     nextflow run /pipeline/main.nf \
-        --config sample1.json \
+        -config /pipeline/conf/wes_single.config \
+        --config /pipeline/examples/sample.json \
+        -profile docker
+```
+
+#### 质控+比对流程 QC_ALIGNMENT
+
+仅进行 FASTP 质控和 BWA 比对，输出 sorted.cram：
+
+```bash
+docker run --rm -it \
+    -v /var/run/docker.sock:/var/run/docker.sock \
+    -v ${PIPELINE_DIR}:/pipeline:ro \
+    -v ${WORKDIR}:${WORKDIR} \
+    -w ${WORKDIR} \
+    docker.biotools.space/schemabio/nextflow:25.10.4 \
+    nextflow run /pipeline/main.nf \
+        -entry QC_ALIGNMENT \
+        -config /pipeline/conf/qc_alignment.config \
+        --config /pipeline/examples/qc_alignment.json \
+        -profile docker
+```
+
+#### CNV 基线构建流程 CNV_BASELINE
+
+使用正常样本构建 CNV 参考基线：
+
+```bash
+docker run --rm -it \
+    -v /var/run/docker.sock:/var/run/docker.sock \
+    -v ${PIPELINE_DIR}:/pipeline:ro \
+    -v ${WORKDIR}:${WORKDIR} \
+    -w ${WORKDIR} \
+    docker.biotools.space/schemabio/nextflow:25.10.4 \
+    nextflow run /pipeline/main.nf \
+        -entry CNV_BASELINE \
+        -config /pipeline/conf/cnv_baseline.config \
+        --config /pipeline/examples/cnv_baseline.json \
         -profile docker
 ```
 
 > **Docker-in-Docker 注意事项：** 除 pipeline 目录外，所有路径挂载时容器内外必须一致。因为 Nextflow 调度的子容器由宿主机 Docker daemon 启动，只能看到宿主机文件系统。
 
-### 4. 配置文件说明
+### 5. 配置文件说明
 
 ```json
 {
@@ -67,7 +119,7 @@ docker run --rm -it \
 
 > bwa/bwa-mem2 索引文件需与 fasta 同目录同前缀，无需单独配置。
 
-### 5. 输出结构
+### 6. 输出结构
 
 ```
 results/
@@ -84,9 +136,33 @@ results/
 
 ## 流程说明
 
+### WES_SINGLE (默认完整流程)
+
 ```
 FASTP (质控过滤) -> BWA_MEM2 (比对) -> GATK_MARKDUPLICATES (标记重复) -> CRAM
+    -> DEEPVARIANT (SNV/INDEL) -> WHATSHAP (定相) -> VEP (注释) -> GENMOD (遗传模式)
+    -> GATK_MUTECT2_MT (线粒体)
+    -> EXPANSIONHUNTER (STR) -> STRANGER (STR注释)
+    -> CNVKIT (CNV)
+    -> PLINK2 (基因型分析) -> BCFTOOLS_ROH (ROH检测)
+    -> SLIVAR (变异过滤)
 ```
+
+### QC_ALIGNMENT (质控+比对)
+
+```
+FASTP (质控过滤) -> BWA_MEM2 (比对) -> CRAM
+```
+
+输出：质控报告 + sorted.cram
+
+### CNV_BASELINE (CNV基线构建)
+
+```
+CNVKIT_TARGET + CNVKIT_ANTITARGET -> CNVKIT_REFERENCE_BUILD
+```
+
+输出：targets.bed + antitargets.bed + reference.cnn
 
 ## Profiles
 
@@ -133,9 +209,12 @@ nextflow run /pipeline/main.nf \
 ```
 schema-germline/
 ├── main.nf                 # 入口文件
-├── nextflow.config         # 全局配置
+├── nextflow.config         # 全局配置 (公共参数)
 ├── conf/
 │   ├── modules.config      # 模块容器和发布配置
+│   ├── wes_single.config   # WES_SINGLE 专用参数
+│   ├── qc_alignment.config # QC_ALIGNMENT 专用参数
+│   ├── cnv_baseline.config # CNV_BASELINE 专用参数
 │   ├── aliyun.config       # 阿里云配置
 │   └── tencent.config      # 腾讯云配置
 ├── modules/local/          # 本地模块
@@ -143,7 +222,13 @@ schema-germline/
 │   ├── bwa_mem2/main.nf    # 比对
 │   └── gatk/main.nf        # GATK 工具集
 ├── workflows/
-│   └── wes_single.nf       # WES 单样本流程
+│   ├── wes_single.nf       # WES 单样本完整流程
+│   ├── qc_alignment.nf    # 质控+比对流程
+│   └── cnv_baseline.nf     # CNV 基线构建
+├── examples/              # 示例配置文件
+│   ├── sample.json         # WES_SINGLE 配置
+│   ├── qc_alignment.json   # QC_ALIGNMENT 配置
+│   └── cnv_baseline.json   # CNV_BASELINE 配置
 └── containers/             # Dockerfile
 ```
 

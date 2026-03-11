@@ -107,7 +107,13 @@ workflow WES_SINGLE {
     ch_bwamem2_bwt2bit64
     // 是否使用 BWA-MEM2
     use_bwamem2
-    // 可选参数
+
+    main:
+    ch_versions = Channel.empty()
+
+    // =========================================================================
+    // 默认可选参数 (在 main 块中定义)
+    // =========================================================================
     ch_target_bed      = Channel.empty()      // 目标区域 BED
     ch_antitarget_bed  = Channel.empty()      // 反目标区域 BED
     ch_cnv_reference   = Channel.empty()      // CNV 参考基线
@@ -150,9 +156,6 @@ workflow WES_SINGLE {
     genmod_phased = true                      // 输入已定相
     genmod_strict = false                     // 严格模式
     genome_assembly    = 'GRCh38'              // 基因组版本
-
-    main:
-    ch_versions = Channel.empty()
 
     // =========================================================================
     // Step 1: FASTP - Quality Control & Trimming

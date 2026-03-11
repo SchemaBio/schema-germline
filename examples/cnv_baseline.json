@@ -1,3 +1,10 @@
+/*
+ * CNV_BASELINE 流程配置文件
+ *
+ * 使用方式:
+ *   nextflow run main.nf -profile docker -entry CNV_BASELINE --config examples/cnv_baseline.json
+ */
+
 {
   "samples": [
     {

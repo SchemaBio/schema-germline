@@ -34,18 +34,11 @@ process DEEPVARIANT {
     def flank_val = flank ?: 0  // 默认无侧翼拓展
 
     // 处理侧翼拓展：如果有 intervals 且 flank > 0，使用 awk 拓展
-    def intervals_file = intervals
-    def regions_cmd = ""
-
-    if (intervals && flank_val > 0) {
-        // 使用 awk 对 bed 文件进行侧翼拓展
-        intervals_file = "intervals_flank.bed"
-        regions_cmd = "awk 'BEGIN {OFS=\"\\t\"} {start=\\$2; end=\\$3; new_start=start-${flank_val}; new_end=end+${flank_val}; if(new_start<0) new_start=0; print \\$1,new_start,new_end}' ${intervals} > ${intervals_file}"
-    }
+    def intervals_file = (intervals && flank_val > 0) ? "intervals_flank.bed" : intervals
 
     def regions_param = intervals_file ? "--regions ${intervals_file}" : ""
     """
-    ${regions_cmd}
+    ${intervals && flank_val > 0 ? "awk 'BEGIN {OFS=\"\\t\"} {start=\\$2; end=\\$3; new_start=start-${flank_val}; new_end=end+${flank_val}; if(new_start<0) new_start=0; print \\$1,new_start,new_end}' ${intervals} > intervals_flank.bed" : ""}
 
     /opt/deepvariant/bin/run_deepvariant \\
         --model_type ${model} \\

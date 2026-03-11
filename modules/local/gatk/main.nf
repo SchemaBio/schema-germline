@@ -191,8 +191,7 @@ process GATK_MUTECT2_MT {
     def prefix = task.ext.prefix ?: "${meta.id}"
     // 动态检测参考基因组中的线粒体染色体名称
     // 可能命名为: MT, chrM, chrMT, M 等
-    def mt_chr = \$(samtools view -H ${fasta} 2>/dev/null | grep -E '@SQ.*(MT|chrM|chrMT|M)' | sed 's/.*SN://' | cut -f1 | head -1)
-    def interval_param = mt_chr ? "-L \${mt_chr}" : ""
+    // 注意：不能在 Groovy 变量定义中使用 $() shell 执行，需要在 shell 脚本块中执行
     """
     # 检测线粒体染色体名称
     MT_CHR=\$(samtools view -H ${fasta} 2>/dev/null | grep -E '@SQ.*(MT|chrM|chrMT|M)' | head -1 | sed 's/.*SN://' | cut -f1)
