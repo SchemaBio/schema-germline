@@ -7,17 +7,17 @@
  * 输出目录结构 (简化版):
  * ${params.outdir}/
  * └── {sample_id}/
- *     ├── 01_qc/              # 质控报告 (fastp, coverage, sex_check, metrics)
- *     ├── 02_alignment/       # 比对结果 (cram files)
- *     └── 03_variants/        # 突变结果 (all VCF/BCF files, 藏在子目录)
+ *     ├── 01.QC/              # 质控报告 (fastp, coverage, sex_check, metrics)
+ *     ├── 02.Alignment/       # 比对结果 (cram files)
+ *     └── 03.Mutations/        # 突变结果 (all VCF/BCF files, 藏在子目录)
  *         ├── snv_indel/      # SNP/INDEL (deepvariant, whatshap, vep, genmod, plink2, bcftools, slivar)
  *         ├── mt/             # 线粒体 (mutect2_mt)
  *         ├── str/            # STR (expansionhunter, stranger)
  *         └── cnv/            # CNV (cnvkit, svdb)
  *
  * 存储策略:
- *   1. BWA 比对产生 sorted.cram 发布到 02_alignment/
- *   2. GATK MarkDuplicates 完成后，marked.cram 也放入 02_alignment/
+ *   1. BWA 比对产生 sorted.cram 发布到 02.Alignment/
+ *   2. GATK MarkDuplicates 完成后，marked.cram 也放入 02.Alignment/
  *   3. 然后自动删除 sorted.cram，节约空间
  */
 

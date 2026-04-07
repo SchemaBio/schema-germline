@@ -351,7 +351,7 @@ schema-germline/
 ```
 results/
 └── {sample_id}/
-    ├── 01_qc/                   # 质控报告
+    ├── 01.QC/                   # 质控报告
     │   ├── fastp.json           # fastp 质控 JSON
     │   ├── fastp.html           # fastp 质控 HTML 报告
     │   ├── *.metrics.txt        # GATK MarkDuplicates 指标
@@ -359,10 +359,10 @@ results/
     │   ├── *.chromosome*.txt    # 染色体覆盖度
     │   ├── *.region*.txt        # 区域覆盖度
     │   └── *.sex*.txt           # 性别检查结果
-    ├── 02_alignment/            # 比对结果
+    ├── 02.Alignment/            # 比对结果
     │   ├── *.marked.cram        # 去重后的 CRAM
     │   └── *.marked.cram.crai   # CRAM 索引
-    ├── 03_variants/             # 变异结果
+    ├── 03.Mutations/             # 变异结果
     │   ├── snv_indel/           # SNP/INDEL
     │   │   ├── *.vcf.gz         # DeepVariant VCF
     │   │   ├── *.g.vcf.gz       # gVCF (可选)
@@ -392,7 +392,7 @@ results/
     │       ├── *.call.cns       # CNVkit 调用分段
     │       ├── *.vcf.gz         # CNV VCF
     │       └── *.svdb.vcf.gz    # SVDB 注释
-    └── 04_reports/              # 输出报告
+    └── 04.Annotation/              # 输出报告
         ├── *.qc_summary.*       # QC 汇总
         ├── *.slivar.tsv.gz      # 变异表格
         ├── *.parquet            # Parquet 格式结果
