@@ -26,64 +26,64 @@
 // ============================================================================
 
 // Quality Control
-include { FASTP } from '../modules/local/fastp/main'
+include { FASTP } from '../modules/fastp/main'
 
 // Alignment
-include { BWA_MEM } from '../modules/local/bwa_mem2/main'
-include { BWA_MEM2 } from '../modules/local/bwa_mem2/main'
+include { BWA_MEM } from '../modules/bwa_mem2/main'
+include { BWA_MEM2 } from '../modules/bwa_mem2/main'
 
 // Post-Alignment Processing
-include { GATK_MARKDUPLICATES } from '../modules/local/gatk/main'
-include { SAMTOOLS_INDEX } from '../modules/local/samtools/main'
-include { SEX_CHECK } from '../modules/local/sex_check/main'
-include { XAMDST } from '../modules/local/xamdst/main'
+include { GATK_MARKDUPLICATES } from '../modules/gatk/main'
+include { SAMTOOLS_INDEX } from '../modules/samtools/main'
+include { SEX_CHECK } from '../modules/sex_check/main'
+include { XAMDST } from '../modules/xamdst/main'
 
 // Variant Calling
-include { DEEPVARIANT } from '../modules/local/deepvariant/main'
+include { DEEPVARIANT } from '../modules/deepvariant/main'
 
 // Haplotype Phasing
-include { WHATSHAP_PHASE } from '../modules/local/whatshap/main'
+include { WHATSHAP_PHASE } from '../modules/whatshap/main'
 
 // Annotation
-include { VEP } from '../modules/local/vep/main'
+include { VEP } from '../modules/vep/main'
 
 // STR Detection
-include { EXPANSIONHUNTER } from '../modules/local/expansionhunter/main'
+include { EXPANSIONHUNTER } from '../modules/expansionhunter/main'
 
 // CNV Detection
-include { CNVKIT_CALL } from '../modules/local/cnvkit/main'
-include { CNVKIT_EXPORT_VCF } from '../modules/local/cnvkit/main'
+include { CNVKIT_CALL } from '../modules/cnvkit/main'
+include { CNVKIT_EXPORT_VCF } from '../modules/cnvkit/main'
 
 // Genetic Analysis
-include { PLINK2_VCF_TO_PLINK } from '../modules/local/plink2/main'
-include { BCFTOOLS_ROH } from '../modules/local/bcftools/main'
-include { BCFTOOLS_STATS } from '../modules/local/bcftools/main'
+include { PLINK2_VCF_TO_PLINK } from '../modules/plink2/main'
+include { BCFTOOLS_ROH } from '../modules/bcftools/main'
+include { BCFTOOLS_STATS } from '../modules/bcftools/main'
 
 // Sample Identity / Fingerprint
-include { SAMPLE_FINGERPRINT } from '../modules/local/sample_identity/main'
+include { SAMPLE_FINGERPRINT } from '../modules/sample_identity/main'
 
 // Variant Filtering
-include { SLIVAR_EXPR } from '../modules/local/slivar/main'
-include { SLIVAR_COMPOUND_HETS } from '../modules/local/slivar/main'
-include { SLIVAR_TSV } from '../modules/local/slivar/main'
+include { SLIVAR_EXPR } from '../modules/slivar/main'
+include { SLIVAR_COMPOUND_HETS } from '../modules/slivar/main'
+include { SLIVAR_TSV } from '../modules/slivar/main'
 
 // CNV/SV Annotation
-include { SVDB_QUERY } from '../modules/local/svdb/main'
+include { SVDB_QUERY } from '../modules/svdb/main'
 
 // STR Annotation
-include { STRANGER } from '../modules/local/stranger/main'
+include { STRANGER } from '../modules/stranger/main'
 
 // Mitochondrial Analysis
-include { GATK_MUTECT2_MT } from '../modules/local/gatk/main'
+include { GATK_MUTECT2_MT } from '../modules/gatk/main'
 
 // Genetic Model Annotation
-include { GENMOD_MODELS } from '../modules/local/genmod/main'
-include { GENMOD_ANNOTATE } from '../modules/local/genmod/main'
-include { GENMOD_SORT } from '../modules/local/genmod/main'
-include { GENMOD_MODELS as GENMOD_MODELS_SNP } from '../modules/local/genmod/main'
-include { GENMOD_MODELS as GENMOD_MODELS_STR } from '../modules/local/genmod/main'
-include { GENMOD_MODELS as GENMOD_MODELS_MT } from '../modules/local/genmod/main'
-include { GENMOD_MODELS as GENMOD_MODELS_CNV } from '../modules/local/genmod/main'
+include { GENMOD_MODELS } from '../modules/genmod/main'
+include { GENMOD_ANNOTATE } from '../modules/genmod/main'
+include { GENMOD_SORT } from '../modules/genmod/main'
+include { GENMOD_MODELS as GENMOD_MODELS_SNP } from '../modules/genmod/main'
+include { GENMOD_MODELS as GENMOD_MODELS_STR } from '../modules/genmod/main'
+include { GENMOD_MODELS as GENMOD_MODELS_MT } from '../modules/genmod/main'
+include { GENMOD_MODELS as GENMOD_MODELS_CNV } from '../modules/genmod/main'
 
 
 // ============================================================================
