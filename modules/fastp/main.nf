@@ -33,3 +33,55 @@ process FASTP {
         --detect_adapter_for_pe
     """
 }
+
+
+process COLLECTQCMETRICS {
+    tag "COLLECTQCMETRICS on $sample_id"
+    label 'gatk'
+    label 'process_medium'
+    publishDir "${params.output}/01.QC", mode: 'copy'
+
+    input:
+        tuple val(sample_id), path(cram), path(crai)
+        val   fasta
+        val   fasta_dict
+        val   bed
+
+    output:
+        path("${sample_id}.hs_metrics.txt"), emit: hs_metrics
+        path("${sample_id}.insert_size_metrics.txt"), emit: insert_size_metrics
+        path("${sample_id}.insert_size_histogram.pdf"), emit: insert_size_histogram
+        path("${sample_id}.est_lib_complex_metrics.txt"), emit: lib_metrics
+
+    script:
+    """
+    gatk BedToIntervalList \\
+        --VALIDATION_STRINGENCY SILENT \\
+        --TMP_DIR tmp \\
+        --SEQUENCE_DICTIONARY ${fasta_dict} \\
+        --INPUT ${bed} \\
+        --OUTPUT Bait.interval_list
+
+    gatk CollectHsMetrics \\
+        --VALIDATION_STRINGENCY SILENT \\
+        --TMP_DIR tmp \\
+        --BAIT_INTERVALS Bait.interval_list \\
+        --TARGET_INTERVALS Bait.interval_list \\
+        --INPUT ${cram} \\
+        --OUTPUT ${sample_id}.hs_metrics.txt
+
+    gatk CollectInsertSizeMetrics \\
+        --VALIDATION_STRINGENCY SILENT \\
+        --TMP_DIR tmp \\
+        --INPUT ${cram} \\
+        --OUTPUT ${sample_id}.insert_size_metrics.txt \\
+        --Histogram_FILE ${sample_id}.insert_size_histogram.pdf
+
+    gatk EstimateLibraryComplexity \\
+        --MAX_RECORDS_IN_RAM 303942330 \\
+        --VALIDATION_STRINGENCY SILENT \\
+        --TMP_DIR tmp \\
+        --INPUT ${cram} \\
+        --OUTPUT ${sample_id}.est_lib_complex_metrics.txt
+    """
+}

@@ -18,8 +18,8 @@ process MARKDUPLICATES {
         val fasta           // 参考基因组路径
 
     output:
-        path("*markdup.{cram,bam}"), emit: alignment
-        path("*.markdup.metrics.txt"), emit: metrics
+        path("*marked.{cram,bam}"), emit: alignment
+        path("*.marked.metrics.txt"), emit: metrics
 
     script:
     // 从文件名提取 sample_id
@@ -27,9 +27,42 @@ process MARKDUPLICATES {
     """
     gatk MarkDuplicates \\
         -I ${alignment} \\
-        -O ${sample_id}.markdup.${alignment.name.endsWith('.bam') ? 'bam' : 'cram'} \\
-        -M ${sample_id}.markdup.metrics.txt \\
+        -O ${sample_id}.marked.${alignment.name.endsWith('.bam') ? 'bam' : 'cram'} \\
+        -M ${sample_id}.marked.metrics.txt \\
         --CREATE_INDEX false \\
         --REFERENCE_SEQUENCE ${fasta}
+    """
+}
+
+process COLLECTQCMETRICS {
+    tag "COLLECTQCMETRICS on ${alignment.baseName}"
+    label 'gatk'
+    label 'process_medium'
+    publishDir "${params.output}/01.QC", mode: 'copy'
+
+    input:
+        path alignment
+        path alignment_index
+        path fasta
+        path target_bed
+
+    output:
+        path "*.metrics", emit: metrics
+        path "*.pdf", emit: pdf, optional: true
+
+    script:
+    def sample_id = alignment.baseName.replaceAll(/\.(marked|bam|cram)$/, '')
+    """
+    gatk CollectMultipleMetrics \\
+        -I ${alignment} \\
+        -O ${sample_id} \\
+        -R ${fasta} \\
+        --INTERVALS ${target_bed} \\
+        --PROGRAM CollectAlignmentSummaryMetrics \\
+        --PROGRAM CollectInsertSizeMetrics \\
+        --PROGRAM QualityScoreDistribution \\
+        --PROGRAM CollectGcBiasMetrics \\
+        --PROGRAM MeanQualityByCycle \\
+        --PROGRAM CollectBaseDistributionByCycle
     """
 }

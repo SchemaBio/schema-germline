@@ -14,8 +14,9 @@
 include { FASTP } from '../../modules/fastp/main'
 include { PB_FQ2BAM } from '../../modules/parabricks/main'
 include { BWAMEM; BWAMEM2 } from '../../modules/bwamem/main'
-include { MARKDUPLICATES } from '../../modules/gatk/main'
-include { SAMTOOLS_INDEX } from '../../modules/samtools/main'
+include { MARKDUPLICATES; COLLECTQCMETRICS } from '../../modules/gatk/main'
+include { SAMTOOLS_INDEX; SEX_CHECK_SRY } from '../../modules/samtools/main'
+include { XAMDST } from '../../modules/xamdst/main'
 
 // ============================================================================
 // Workflow Definition
@@ -24,12 +25,15 @@ include { SAMTOOLS_INDEX } from '../../modules/samtools/main'
 workflow WES_SINGLE {
 
     take:
-    ch_reads           // Channel of [sample_id, reads] tuples
-    ch_fasta           // 参考基因组 FASTA
-    ch_fasta_fai       // 参考基因组索引
-    val output_format  // 输出格式: 'cram' 或 'bam' (string)
-    val rgid           // Read Group ID (string)
-    val use_gpu        // 是否使用 GPU (boolean)
+    ch_reads              // Channel of [sample_id, reads] tuples
+    ch_fasta              // 参考基因组 FASTA
+    ch_fasta_fai          // 参考基因组索引
+    ch_target_bed         // 捕获区域 BED 文件
+    val output_format     // 输出格式: 'cram' 或 'bam' (string)
+    val rgid              // Read Group ID (string)
+    val use_gpu           // 是否使用 GPU (boolean)
+    val genome_assembly   // 基因组版本: 'GRCh37' 或 'GRCh38'
+    val sex_check_threshold  // 性别检测 SRY reads 阈值 (integer)
 
     main:
     // 预定义输出通道
@@ -133,40 +137,59 @@ workflow WES_SINGLE {
     // =========================================================================
     // Step 4: 覆盖度统计
     // =========================================================================
+    // 从 FASTP 输出提取 sample_id，与 alignment 组合成 XAMDST 需要的 tuple 格式
+    ch_sample_id = FASTP.out.clean_reads.map { sample_id, reads -> sample_id }
+    ch_alignment_tuple = ch_alignment.combine(ch_sample_id).map { alignment, sample_id -> tuple(sample_id, alignment) }
+
+    XAMDST(ch_alignment_tuple, ch_target_bed)
+
+    // =========================================================================
+    // Step 5: 比对质量统计 (GATK CollectMultipleMetrics)
+    // =========================================================================
+    COLLECTQCMETRICS(
+        ch_alignment,
+        ch_alignment_index,
+        ch_fasta,
+        ch_target_bed
+    )
+
+    // =========================================================================
+    // Step 6: 性别检测 (基于 SRY 区域 reads 数)
+    // =========================================================================
+    SEX_CHECK_SRY(
+        ch_alignment,
+        ch_alignment_index,
+        genome_assembly,
+        sex_check_threshold
+    )
+
+    // =========================================================================
+    // Step 7: SNV/Indel 变异检测
+    // =========================================================================
     // TODO
 
     // =========================================================================
-    // Step 5: 性别检测
+    // Step 8: CNV 检测
     // =========================================================================
     // TODO
 
     // =========================================================================
-    // Step 6: SNV/Indel 变异检测
+    // Step 9: STR 扩展检测
     // =========================================================================
     // TODO
 
     // =========================================================================
-    // Step 7: CNV 检测
+    // Step 10: MEI 检测
     // =========================================================================
     // TODO
 
     // =========================================================================
-    // Step 8: STR 扩展检测
+    // Step 11: 变异注释
     // =========================================================================
     // TODO
 
     // =========================================================================
-    // Step 9: MEI 检测
-    // =========================================================================
-    // TODO
-
-    // =========================================================================
-    // Step 10: 变异注释
-    // =========================================================================
-    // TODO
-
-    // =========================================================================
-    // Step 11: 变异过滤与评分
+    // Step 12: 变异过滤与评分
     // =========================================================================
     // TODO
 
@@ -174,10 +197,14 @@ workflow WES_SINGLE {
     // Emit Results
     // =========================================================================
     emit:
-    clean_reads       = FASTP.out.clean_reads   // 过滤后的 FASTQ
-    json_report       = FASTP.out.json_report   // JSON QC 报告
-    html_report       = FASTP.out.html_report   // HTML QC 报告
-    alignment         = ch_alignment            // BAM/CRAM 比对文件
-    alignment_index   = ch_alignment_index      // 比对文件索引
-    markdup_metrics   = ch_markdup_metrics      // MarkDuplicates 质控报告 (非GPU模式)
+    clean_reads          = FASTP.out.clean_reads           // 过滤后的 FASTQ
+    json_report          = FASTP.out.json_report           // JSON QC 报告
+    html_report          = FASTP.out.html_report           // HTML QC 报告
+    alignment            = ch_alignment                    // BAM/CRAM 比对文件
+    alignment_index      = ch_alignment_index              // 比对文件索引
+    markdup_metrics      = ch_markdup_metrics              // MarkDuplicates 质控报告 (非GPU模式)
+    coverage_report      = XAMDST.out.coverage_report      // 覆盖度统计报告
+    qc_metrics           = COLLECTQCMETRICS.out.metrics    // GATK QC 指标文件
+    qc_pdf               = COLLECTQCMETRICS.out.pdf        // GATK QC PDF 报告 (可选)
+    sex_check_json       = SEX_CHECK_SRY.out.json          // 性别检测结果 JSON
 }
