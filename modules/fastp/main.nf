@@ -1,44 +1,35 @@
-/*
- * FASTP 质控过滤模块
- * 
- * 功能：对 PE 测序数据进行质量控制和过滤
- * 工具：fastp
- * 资源：由 modules.config 定义 (默认 8 CPU, 4GB 内存)
- */
+// FASTP 质控模块
+// 用途：对原始测序数据进行质量控制和接头去除
+// 用法：
+//   - 输入：样本ID、双端FASTQ文件
+//   - 输出：过滤后的FASTQ、JSON和HTML质控报告
+//   - 自动检测并去除接头序列
+
 process FASTP {
-    tag "$meta.id"
+    tag "FASTP on $sample_id"
+    label 'process_medium'
+    label 'mapping'
+    publishDir "${params.output}/01.QC", mode: 'copy'
 
     input:
-    tuple val(meta), path(reads)  // meta: 样本元信息; reads: [R1.fq.gz, R2.fq.gz]
+        tuple val(sample_id), path(read1), path(read2)
 
     output:
-    tuple val(meta), path("*_R{1,2}.fq.gz"), emit: reads    // 过滤后的 fastq
-    tuple val(meta), path("*.json")        , emit: json     // JSON 报告
-    tuple val(meta), path("*.html")        , emit: html     // HTML 报告
-    path "versions.yml"                    , emit: versions // 软件版本信息
-
-    when:
-    task.ext.when == null || task.ext.when
+        tuple val(sample_id), path("${sample_id}.clean_*.fq.gz"), emit: clean_reads
+        path("${sample_id}.fastp.stat.json"), emit: json_report
+        path("${sample_id}.fastp.stat.html"), emit: html_report
 
     script:
-    def args = task.ext.args ?: ''
-    def prefix = task.ext.prefix ?: "${meta.id}"
     def threads = Math.min(task.cpus as int, 16)  // fastp 最多支持 16 线程
     """
     fastp \\
-        --in1 ${reads[0]} \\
-        --in2 ${reads[1]} \\
-        --out1 ${prefix}_R1.fq.gz \\
-        --out2 ${prefix}_R2.fq.gz \\
-        --json ${prefix}.fastp.json \\
-        --html ${prefix}.fastp.html \\
-        --thread ${threads} \\
-        --detect_adapter_for_pe \\
-        ${args}
-
-    cat <<-END_VERSIONS > versions.yml
-    "${task.process}":
-        fastp: \$(fastp --version 2>&1 | sed 's/fastp //')
-    END_VERSIONS
+        -i ${read1} \\
+        -I ${read2} \\
+        -o ${sample_id}.clean_1.fq.gz \\
+        -O ${sample_id}.clean_2.fq.gz \\
+        -w ${threads} \\
+        -j ${sample_id}.fastp.stat.json \\
+        -h ${sample_id}.fastp.stat.html \\
+        --detect_adapter_for_pe
     """
 }

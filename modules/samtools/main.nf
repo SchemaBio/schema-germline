@@ -1,37 +1,24 @@
-/*
- * Samtools 模块集合
- *
- * 包含：Index
- */
+// Samtools 模块
+// 用途：为 BAM/CRAM 文件创建索引
+// 用法：
+//   - 输入：BAM/CRAM 文件
+//   - 输出：索引文件 (.bai/.crai)
 
-/*
- * SAMTOOLS_INDEX - 为 BAM/CRAM 文件创建索引
- */
 process SAMTOOLS_INDEX {
-    tag "$meta.id"
+    tag "SAMTOOLS_INDEX on ${alignment.baseName}"
     label 'process_low'
+    publishDir "${params.output}/02.Alignment", mode: 'copy'
 
     input:
-    tuple val(meta), path(alignment)  // BAM 或 CRAM 文件
+        path alignment
 
     output:
-    tuple val(meta), path(alignment), path("*.{bai,crai}"), emit: alignment
-    path "versions.yml"                                   , emit: versions
-
-    when:
-    task.ext.when == null || task.ext.when
+        path alignment, emit: alignment
+        path "*.{bai,crai}", emit: index
 
     script:
-    def args = task.ext.args ?: ''
+    def threads = Math.min(task.cpus as int, 4)
     """
-    samtools index \\
-        -@ ${task.cpus} \\
-        ${args} \\
-        ${alignment}
-
-    cat <<-END_VERSIONS > versions.yml
-    "${task.process}":
-        samtools: \$(samtools --version | head -n1 | sed 's/samtools //')
-    END_VERSIONS
+    samtools index -@ ${threads} ${alignment}
     """
 }
