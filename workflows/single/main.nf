@@ -19,6 +19,8 @@ include { SAMTOOLS_INDEX; SEX_CHECK_SRY } from '../../modules/samtools/main'
 include { XAMDST } from '../../modules/xamdst/main'
 include { BCFTOOLS_BAF_MATRIX } from '../../modules/bcftools/main'
 include { DEEPVARIANT } from '../../modules/deepvariant/main'
+include { CNVKIT_BATCH } from '../../modules/cnvkit/main'
+include { EXPANSIONHUNTER } from '../../modules/expansionhunter/main'
 
 // ============================================================================
 // Workflow Definition
@@ -42,6 +44,22 @@ workflow WES_SINGLE {
     val baf_max_depth        // BAF 计算最大深度 (integer, 默认 200)
     val deepvariant_model    // DeepVariant 模型类型: WES/WGS/PACBIO/ONT_R104 (默认 WES)
     val deepvariant_shards   // DeepVariant 并行分片数 (integer, 默认使用 task.cpus)
+    // CNVkit 参数
+    ch_cnvkit_reference      // CNVkit 基线文件 (reference.cnn)
+    ch_cnvkit_access_bed     // CNVkit 可访问区域 BED (可选)
+    val cnvkit_annotate      // CNVkit 是否添加基因注释 (boolean)
+    val cnvkit_split_size    // CNVkit 分割大小 (integer, 默认 5000)
+    val cnvkit_min_target_size // CNVkit 最小目标大小 (integer, 默认 10000)
+    val cnvkit_method        // CNVkit 分段方法: 'cbs', 'haar', 'flasso' (默认 cbs)
+    val cnvkit_threshold     // CNVkit 分段阈值 (可选)
+    val cnvkit_ploidy        // CNVkit 倍性 (integer, 默认 2)
+    val cnvkit_drop_outliers // CNVkit 是否丢弃离群值 (boolean, 默认 true)
+    val cnvkit_output_dir    // CNVkit 输出目录
+    // ExpansionHunter 参数
+    ch_expansionhunter_catalog // ExpansionHunter STR 位点定义文件 (JSON)
+    val expansionhunter_min_anchor // ExpansionHunter 最小锚定长度 (integer, 默认 8)
+    val expansionhunter_max_irr // ExpansionHunter 最大不完美匹配距离 (integer, 默认 100)
+    val expansionhunter_output_dir // ExpansionHunter 输出目录
 
     main:
     // 预定义输出通道
@@ -53,6 +71,8 @@ workflow WES_SINGLE {
     ch_gvcf = Channel.empty()
     ch_gvcf_tbi = Channel.empty()
     ch_variant_report = Channel.empty()
+    ch_cnv = Channel.empty()
+    ch_str = Channel.empty()
 
     // =========================================================================
     // Step 1: FASTQ 质控过滤
@@ -253,14 +273,86 @@ workflow WES_SINGLE {
     )
 
     // =========================================================================
-    // Step 9: CNV 检测
+    // Step 9: CNV 检测 (CNVkit)
     // =========================================================================
-    // TODO
+    // 从性别检测结果提取样本性别，用于 CNV 分析
+    ch_sex_result = SEX_CHECK_SRY.out.json.map { json_file ->
+        def content = new groovy.json.JsonSlurper().parseText(json_file.text)
+        def sample_id = json_file.baseName.replaceAll(/\\.sex\\.json$/, '')
+        tuple(sample_id, content.inferred_sex == 'Male')
+    }
+
+    // 组合 alignment、index、性别信息
+    ch_alignment_with_sex = ch_alignment
+        .combine(ch_alignment_index)
+        .combine(ch_sample_id)
+        .combine(ch_sex_result)
+        .map { alignment, index, sample_id, sex_sample_id, is_male ->
+            // 确保 sample_id 匹配
+            assert sample_id == sex_sample_id || sex_sample_id.startsWith(sample_id)
+            tuple(alignment, index, is_male)
+        }
+
+    // 执行 CNV 检测
+    CNVKIT_BATCH(
+        ch_alignment_with_sex.map { alignment, index, is_male -> alignment },
+        ch_alignment_with_sex.map { alignment, index, is_male -> index },
+        ch_target_bed,
+        cnvkit_annotate,
+        cnvkit_split_size,
+        ch_cnvkit_access_bed,
+        cnvkit_min_target_size,
+        ch_fasta,
+        ch_cnvkit_reference,
+        cnvkit_method,
+        cnvkit_threshold,
+        cnvkit_ploidy,
+        ch_alignment_with_sex.map { alignment, index, is_male -> is_male },
+        cnvkit_drop_outliers,
+        cnvkit_output_dir
+    )
+    .publishDir(cnvkit_output_dir ?: 'NO_OUTPUT', mode: 'copy', enabled: cnvkit_output_dir != 'NO_OUTPUT')
+
+    ch_cnv = ch_cnv.mix(CNVKIT_BATCH.out.target_bed)
+    ch_cnv = ch_cnv.mix(CNVKIT_BATCH.out.antitarget_bed)
+    ch_cnv = ch_cnv.mix(CNVKIT_BATCH.out.target_coverage)
+    ch_cnv = ch_cnv.mix(CNVKIT_BATCH.out.antitarget_coverage)
+    ch_cnv = ch_cnv.mix(CNVKIT_BATCH.out.cnr)
+    ch_cnv = ch_cnv.mix(CNVKIT_BATCH.out.exon_call_cns)
+    ch_cnv = ch_cnv.mix(CNVKIT_BATCH.out.seg_cns)
+    ch_cnv = ch_cnv.mix(CNVKIT_BATCH.out.seg_call_cns)
 
     // =========================================================================
-    // Step 10: STR 扩展检测
+    // Step 10: STR 扩展检测 (ExpansionHunter)
     // =========================================================================
-    // TODO
+    // 从性别检测结果提取样本性别，用于 STR 分析
+    ch_sex_for_str = ch_sex_result.map { sample_id, is_male ->
+        is_male ? 'male' : 'female'
+    }
+
+    // 组合 alignment、index、性别信息
+    ch_alignment_for_str = ch_alignment
+        .combine(ch_alignment_index)
+        .combine(ch_sex_for_str)
+
+    // 执行 STR 扩展检测
+    EXPANSIONHUNTER(
+        ch_alignment_for_str.map { alignment, index, sex -> alignment },
+        ch_alignment_for_str.map { alignment, index, sex -> index },
+        ch_fasta,
+        ch_fasta_fai,
+        ch_expansionhunter_catalog,
+        ch_alignment_for_str.map { alignment, index, sex -> sex },
+        expansionhunter_min_anchor,
+        expansionhunter_max_irr,
+        expansionhunter_output_dir
+    )
+    .publishDir(expansionhunter_output_dir ?: 'NO_OUTPUT', mode: 'copy', enabled: expansionhunter_output_dir != 'NO_OUTPUT')
+
+    ch_str = ch_str.mix(EXPANSIONHUNTER.out.vcf)
+    ch_str = ch_str.mix(EXPANSIONHUNTER.out.vcf_tbi)
+    ch_str = ch_str.mix(EXPANSIONHUNTER.out.json)
+    ch_str = ch_str.mix(EXPANSIONHUNTER.out.reads_json)
 
     // =========================================================================
     // Step 11: MEI 检测
@@ -302,4 +394,6 @@ workflow WES_SINGLE {
     mt_vcf                  = MUTECT2_MT.out.vcf                 // 线粒体变异 VCF 文件
     mt_vcf_tbi              = MUTECT2_MT.out.vcf_tbi             // 线粒体 VCF 索引
     mt_stats                = MUTECT2_MT.out.stats               // 线粒体变异统计
+    cnv_results             = ch_cnv                             // CNV 检测结果 (CNVkit)
+    str_results             = ch_str                             // STR 扩展检测结果 (ExpansionHunter)
 }
