@@ -21,6 +21,8 @@ include { BCFTOOLS_BAF_MATRIX } from '../../modules/bcftools/main'
 include { DEEPVARIANT } from '../../modules/deepvariant/main'
 include { CNVKIT_BATCH } from '../../modules/cnvkit/main'
 include { EXPANSIONHUNTER } from '../../modules/expansionhunter/main'
+include { TIEA_WES } from '../../modules/tiea-wes/main'
+include { WHATSHAP_PHASE } from '../../modules/whatshap/main'
 
 // ============================================================================
 // Workflow Definition
@@ -60,6 +62,16 @@ workflow WES_SINGLE {
     val expansionhunter_min_anchor // ExpansionHunter 最小锚定长度 (integer, 默认 8)
     val expansionhunter_max_irr // ExpansionHunter 最大不完美匹配距离 (integer, 默认 100)
     val expansionhunter_output_dir // ExpansionHunter 输出目录
+    // TIEA-WES 参数
+    val tiea_min_support      // TIEA-WES 最小断点支持 reads 数 (integer, 默认 10)
+    val tiea_min_softclip      // TIEA-WES 最小 softclip 长度 (integer, 默认 36)
+    val tiea_min_mapq          // TIEA-WES 最小 MAPQ (integer, 默认 20)
+    val tiea_cluster_window    // TIEA-WES 断点聚类窗口 bp (integer, 默认 10)
+    val tiea_threads           // TIEA-WES BWA 线程数 (integer, 默认 4)
+    // WhatsHap 参数
+    val whatshap_chromosomes    // WhatsHap 定相染色体 (逗号分隔, 默认全部)
+    val whatshap_ignore_rg      // WhatsHap 是否忽略 read groups (boolean, 默认 true)
+    val whatshap_ref_conf       // WhatsHap 参考置信度阈值 (integer, 默认 20)
 
     main:
     // 预定义输出通道
@@ -73,6 +85,8 @@ workflow WES_SINGLE {
     ch_variant_report = Channel.empty()
     ch_cnv = Channel.empty()
     ch_str = Channel.empty()
+    ch_mei = Channel.empty()
+    ch_phasing = Channel.empty()
 
     // =========================================================================
     // Step 1: FASTQ 质控过滤
@@ -357,7 +371,20 @@ workflow WES_SINGLE {
     // =========================================================================
     // Step 11: MEI 检测
     // =========================================================================
-    // TODO
+    TIEA_WES(
+        ch_alignment,
+        ch_alignment_index,
+        ch_fasta,
+        ch_sample_id,
+        tiea_min_support,
+        tiea_min_softclip,
+        tiea_min_mapq,
+        tiea_cluster_window,
+        tiea_threads
+    )
+
+    ch_mei = ch_mei.mix(TIEA_WES.out.vcf)
+    ch_mei = ch_mei.mix(TIEA_WES.out.vcf_tbi)
 
     // =========================================================================
     // Step 12: 变异注释
@@ -368,6 +395,25 @@ workflow WES_SINGLE {
     // Step 13: 变异过滤与评分
     // =========================================================================
     // TODO
+
+    // =========================================================================
+    // Step 14: 单倍型定相 (WhatsHap)
+    // =========================================================================
+    WHATSHAP_PHASE(
+        ch_vcf,
+        ch_vcf_tbi,
+        ch_alignment,
+        ch_alignment_index,
+        ch_fasta,
+        ch_fasta_fai,
+        ch_sample_id,
+        whatshap_chromosomes,
+        whatshap_ignore_rg,
+        whatshap_ref_conf
+    )
+
+    ch_phasing = ch_phasing.mix(WHATSHAP_PHASE.out.vcf)
+    ch_phasing = ch_phasing.mix(WHATSHAP_PHASE.out.vcf_tbi)
 
     // =========================================================================
     // Emit Results
@@ -396,4 +442,6 @@ workflow WES_SINGLE {
     mt_stats                = MUTECT2_MT.out.stats               // 线粒体变异统计
     cnv_results             = ch_cnv                             // CNV 检测结果 (CNVkit)
     str_results             = ch_str                             // STR 扩展检测结果 (ExpansionHunter)
+    mei_results             = ch_mei                             // MEI 检测结果 (TIEA-WES)
+    phasing_results         = ch_phasing                         // 单倍型定相结果 (WhatsHap)
 }

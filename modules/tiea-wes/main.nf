@@ -29,14 +29,10 @@ process TIEA_WES {
         val min_mapq             // 最小 MAPQ (默认 20)
         val cluster_window       // 断点聚类窗口 bp (默认 10)
         val threads              // BWA 线程数 (默认 4)
-        val output_dir           // 输出目录
 
     output:
         path "${sample_id}.te.result.vcf.gz", emit: vcf
         path "${sample_id}.te.result.vcf.gz.tbi", emit: vcf_tbi
-
-    when:
-    output_dir != 'NO_OUTPUT'
 
     script:
     def support = min_support ?: 10
