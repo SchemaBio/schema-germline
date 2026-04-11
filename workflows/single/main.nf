@@ -23,6 +23,8 @@ include { CNVKIT_BATCH } from '../../modules/cnvkit/main'
 include { EXPANSIONHUNTER } from '../../modules/expansionhunter/main'
 include { TIEA_WES } from '../../modules/tiea-wes/main'
 include { WHATSHAP_PHASE } from '../../modules/whatshap/main'
+include { VEP_ANNOTATE; VEP_MT; VEP_MEI } from '../../modules/vep/main'
+include { STRANGER_ANNOTATE; STRANGER_FILTER } from '../../modules/stranger/main'
 
 // ============================================================================
 // Workflow Definition
@@ -72,6 +74,16 @@ workflow WES_SINGLE {
     val whatshap_chromosomes    // WhatsHap 定相染色体 (逗号分隔, 默认全部)
     val whatshap_ignore_rg      // WhatsHap 是否忽略 read groups (boolean, 默认 true)
     val whatshap_ref_conf       // WhatsHap 参考置信度阈值 (integer, 默认 20)
+    val whatshap_output_dir     // WhatsHap 输出目录
+    // VEP 参数
+    val vep_use_pick            // VEP 是否选择最显著注释 (boolean, 默认 true)
+    val vep_use_refseq_only     // VEP 是否仅使用 RefSeq 转录本 (boolean, 默认 false)
+    val vep_cache_dir           // VEP 缓存目录 (可选，默认使用容器内置缓存)
+    val vep_extra_args          // VEP 额外参数 (可选)
+    val vep_mei_upstream_distance // VEP MEI 注释上游基因距离阈值 bp (默认 5000)
+    val vep_mei_downstream_distance // VEP MEI 注释下游基因距离阈值 bp (默认 5000)
+    // Stranger 参数
+    val stranger_filter_mode    // Stranger 过滤模式: 'pathogenic', 'borderline', 'all_disease' (默认 pathogenic)
 
     main:
     // 预定义输出通道
@@ -87,6 +99,12 @@ workflow WES_SINGLE {
     ch_str = Channel.empty()
     ch_mei = Channel.empty()
     ch_phasing = Channel.empty()
+    ch_vep_vcf = Channel.empty()
+    ch_vep_vcf_tbi = Channel.empty()
+    ch_vep_mt_vcf = Channel.empty()
+    ch_vep_mt_vcf_tbi = Channel.empty()
+    ch_vep_mei_vcf = Channel.empty()
+    ch_vep_mei_vcf_tbi = Channel.empty()
 
     // =========================================================================
     // Step 1: FASTQ 质控过滤
@@ -287,7 +305,32 @@ workflow WES_SINGLE {
     )
 
     // =========================================================================
-    // Step 9: CNV 检测 (CNVkit)
+    // Step 9: 单倍型定相 (WhatsHap)
+    // =========================================================================
+    // 定相应在 VEP 注释之前，以便注释定相后的 VCF
+    WHATSHAP_PHASE(
+        ch_vcf,
+        ch_vcf_tbi,
+        ch_alignment,
+        ch_alignment_index,
+        ch_fasta,
+        ch_fasta_fai,
+        ch_sample_id,
+        whatshap_chromosomes,
+        whatshap_ignore_rg,
+        whatshap_ref_conf,
+        whatshap_output_dir
+    )
+
+    ch_phasing = ch_phasing.mix(WHATSHAP_PHASE.out.vcf)
+    ch_phasing = ch_phasing.mix(WHATSHAP_PHASE.out.vcf_tbi)
+
+    // 更新 VCF 通道为定相后的 VCF，用于后续 VEP 注释
+    ch_vcf = WHATSHAP_PHASE.out.vcf
+    ch_vcf_tbi = WHATSHAP_PHASE.out.vcf_tbi
+
+    // =========================================================================
+    // Step 10: CNV 检测 (CNVkit)
     // =========================================================================
     // 从性别检测结果提取样本性别，用于 CNV 分析
     ch_sex_result = SEX_CHECK_SRY.out.json.map { json_file ->
@@ -337,7 +380,7 @@ workflow WES_SINGLE {
     ch_cnv = ch_cnv.mix(CNVKIT_BATCH.out.seg_call_cns)
 
     // =========================================================================
-    // Step 10: STR 扩展检测 (ExpansionHunter)
+    // Step 11: STR 扩展检测 (ExpansionHunter)
     // =========================================================================
     // 从性别检测结果提取样本性别，用于 STR 分析
     ch_sex_for_str = ch_sex_result.map { sample_id, is_male ->
@@ -369,7 +412,35 @@ workflow WES_SINGLE {
     ch_str = ch_str.mix(EXPANSIONHUNTER.out.reads_json)
 
     // =========================================================================
-    // Step 11: MEI 检测
+    // Step 11b: STR 注释 (Stranger)
+    // =========================================================================
+    // Stranger 注释 ExpansionHunter 输出的 VCF，添加疾病信息和致病范围
+    STRANGER_ANNOTATE(
+        EXPANSIONHUNTER.out.vcf,
+        EXPANSIONHUNTER.out.vcf_tbi,
+        ch_expansionhunter_catalog,
+        genome_assembly,
+        expansionhunter_output_dir
+    )
+
+    ch_str = ch_str.mix(STRANGER_ANNOTATE.out.vcf)
+    ch_str = ch_str.mix(STRANGER_ANNOTATE.out.vcf_tbi)
+    ch_str = ch_str.mix(STRANGER_ANNOTATE.out.summary)
+
+    // 筛选致病性 STR 扩展
+    STRANGER_FILTER(
+        STRANGER_ANNOTATE.out.vcf,
+        STRANGER_ANNOTATE.out.vcf_tbi,
+        stranger_filter_mode,
+        expansionhunter_output_dir
+    )
+
+    ch_str = ch_str.mix(STRANGER_FILTER.out.filtered_vcf)
+    ch_str = ch_str.mix(STRANGER_FILTER.out.filtered_vcf_tbi)
+    ch_str = ch_str.mix(STRANGER_FILTER.out.report)
+
+    // =========================================================================
+    // Step 12: MEI 检测
     // =========================================================================
     TIEA_WES(
         ch_alignment,
@@ -387,33 +458,50 @@ workflow WES_SINGLE {
     ch_mei = ch_mei.mix(TIEA_WES.out.vcf_tbi)
 
     // =========================================================================
-    // Step 12: 变异注释
+    // Step 14: 变异注释 (VEP)
     // =========================================================================
-    // TODO
-
-    // =========================================================================
-    // Step 13: 变异过滤与评分
-    // =========================================================================
-    // TODO
-
-    // =========================================================================
-    // Step 14: 单倍型定相 (WhatsHap)
-    // =========================================================================
-    WHATSHAP_PHASE(
+    // SNV/Indel 注释
+    VEP_ANNOTATE(
         ch_vcf,
         ch_vcf_tbi,
-        ch_alignment,
-        ch_alignment_index,
         ch_fasta,
         ch_fasta_fai,
-        ch_sample_id,
-        whatshap_chromosomes,
-        whatshap_ignore_rg,
-        whatshap_ref_conf
+        genome_assembly,
+        vep_use_pick,
+        vep_use_refseq_only,
+        vep_cache_dir,
+        vep_extra_args
     )
+    ch_vep_vcf = ch_vep_vcf.mix(VEP_ANNOTATE.out.vep_vcf)
+    ch_vep_vcf_tbi = ch_vep_vcf_tbi.mix(VEP_ANNOTATE.out.vep_vcf_tbi)
 
-    ch_phasing = ch_phasing.mix(WHATSHAP_PHASE.out.vcf)
-    ch_phasing = ch_phasing.mix(WHATSHAP_PHASE.out.vcf_tbi)
+    // 线粒体注释
+    VEP_MT(
+        MUTECT2_MT.out.vcf,
+        MUTECT2_MT.out.vcf_tbi,
+        ch_fasta,
+        ch_fasta_fai,
+        genome_assembly,
+        vep_cache_dir,
+        vep_extra_args
+    )
+    ch_vep_mt_vcf = ch_vep_mt_vcf.mix(VEP_MT.out.vep_vcf)
+    ch_vep_mt_vcf_tbi = ch_vep_mt_vcf_tbi.mix(VEP_MT.out.vep_vcf_tbi)
+
+    // MEI 注释
+    VEP_MEI(
+        TIEA_WES.out.vcf,
+        TIEA_WES.out.vcf_tbi,
+        ch_fasta,
+        ch_fasta_fai,
+        genome_assembly,
+        vep_mei_upstream_distance,
+        vep_mei_downstream_distance,
+        vep_cache_dir,
+        vep_extra_args
+    )
+    ch_vep_mei_vcf = ch_vep_mei_vcf.mix(VEP_MEI.out.vep_vcf)
+    ch_vep_mei_vcf_tbi = ch_vep_mei_vcf_tbi.mix(VEP_MEI.out.vep_vcf_tbi)
 
     // =========================================================================
     // Emit Results
@@ -441,7 +529,22 @@ workflow WES_SINGLE {
     mt_vcf_tbi              = MUTECT2_MT.out.vcf_tbi             // 线粒体 VCF 索引
     mt_stats                = MUTECT2_MT.out.stats               // 线粒体变异统计
     cnv_results             = ch_cnv                             // CNV 检测结果 (CNVkit)
-    str_results             = ch_str                             // STR 扩展检测结果 (ExpansionHunter)
+    str_results             = ch_str                             // STR 扩展检测结果 (ExpansionHunter + Stranger)
+    stranger_vcf             = STRANGER_ANNOTATE.out.vcf          // Stranger 注释后的 STR VCF
+    stranger_vcf_tbi         = STRANGER_ANNOTATE.out.vcf_tbi      // Stranger VCF 索引
+    stranger_summary         = STRANGER_ANNOTATE.out.summary      // Stranger 注释摘要
+    stranger_filtered_vcf    = STRANGER_FILTER.out.filtered_vcf   // Stranger 过滤后的致病性 STR VCF
+    stranger_filtered_report = STRANGER_FILTER.out.report         // Stranger 致病性 STR 报告
     mei_results             = ch_mei                             // MEI 检测结果 (TIEA-WES)
     phasing_results         = ch_phasing                         // 单倍型定相结果 (WhatsHap)
+    phasing_json            = WHATSHAP_PHASE.out.json            // 定相统计 JSON (WhatsHap)
+    vep_vcf                 = ch_vep_vcf                         // VEP 注释后的 SNV/Indel VCF
+    vep_vcf_tbi             = ch_vep_vcf_tbi                     // VEP SNV/Indel VCF 索引
+    vep_summary             = VEP_ANNOTATE.out.summary           // VEP SNV/Indel 注释摘要
+    vep_mt_vcf              = ch_vep_mt_vcf                      // VEP 注释后的线粒体 VCF
+    vep_mt_vcf_tbi          = ch_vep_mt_vcf_tbi                  // VEP 线粒体 VCF 索引
+    vep_mt_summary          = VEP_MT.out.summary                 // VEP 线粒体注释摘要
+    vep_mei_vcf             = ch_vep_mei_vcf                     // VEP 注释后的 MEI VCF
+    vep_mei_vcf_tbi         = ch_vep_mei_vcf_tbi                 // VEP MEI VCF 索引
+    vep_mei_summary         = VEP_MEI.out.summary                // VEP MEI 注释摘要
 }
