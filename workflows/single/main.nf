@@ -82,6 +82,14 @@ workflow WES_SINGLE {
     val vep_extra_args          // VEP 额外参数 (可选)
     val vep_mei_upstream_distance // VEP MEI 注释上游基因距离阈值 bp (默认 5000)
     val vep_mei_downstream_distance // VEP MEI 注释下游基因距离阈值 bp (默认 5000)
+    // VEP 自定义数据库参数
+    val vep_db_dir              // VEP 自定义数据库根目录 (SchemaBio_Bundle)
+    val vep_use_gnomad          // 是否使用 gnomAD 人群频率数据库 (boolean, 默认 true)
+    val vep_use_alphamissense   // 是否使用 AlphaMissense 致病性预测 (boolean, 默认 true)
+    val vep_use_evoscore        // 是否使用 EVOScore2 进化保守性评分 (boolean, 默认 true)
+    val vep_use_civic           // 是否使用 CIViC 临床变异注释 (boolean, 默认 true)
+    val vep_use_mskcc           // 是否使用 MSKCC 癌症热点突变 (boolean, 默认 true)
+    val vep_use_pangolin        // 是否使用 Pangolin 基因组注释 (boolean, 默认 true)
     // Stranger 参数
     val stranger_filter_mode    // Stranger 过滤模式: 'pathogenic', 'borderline', 'all_disease' (默认 pathogenic)
 
@@ -460,7 +468,62 @@ workflow WES_SINGLE {
     // =========================================================================
     // Step 14: 变异注释 (VEP)
     // =========================================================================
-    // SNV/Indel 注释
+    // 构建自定义数据库文件通道
+    // 根据 genome_assembly 选择 hg19 或 hg38 目录下的数据库文件
+    def db_prefix = genome_assembly == 'GRCh37' ? 'hg19' : 'hg38'
+
+    // 创建数据库文件通道 (如果提供了 db_dir 且启用了相应数据库)
+    ch_gnomad_vcf = Channel.empty()
+    ch_gnomad_tbi = Channel.empty()
+    ch_alphamissense_vcf = Channel.empty()
+    ch_alphamissense_tbi = Channel.empty()
+    ch_evoscore_vcf = Channel.empty()
+    ch_evoscore_tbi = Channel.empty()
+    ch_civic_vcf = Channel.empty()
+    ch_civic_tbi = Channel.empty()
+    ch_mskcc_vcf = Channel.empty()
+    ch_mskcc_tbi = Channel.empty()
+    ch_pangolin_vcf = Channel.empty()
+    ch_pangolin_tbi = Channel.empty()
+
+    if (vep_db_dir) {
+        def db_path = "${vep_db_dir}/${db_prefix}"
+
+        if (vep_use_gnomad) {
+            ch_gnomad_vcf = Channel.fromPath("${db_path}/${db_prefix}_gnomad.v4.1.filtered.vcf.gz", checkIfExists: true)
+            ch_gnomad_tbi = Channel.fromPath("${db_path}/${db_prefix}_gnomad.v4.1.filtered.vcf.gz.tbi", checkIfExists: true)
+            log.info "VEP: 使用 gnomAD 数据库: ${db_path}/${db_prefix}_gnomad.v4.1.filtered.vcf.gz"
+        }
+        if (vep_use_alphamissense) {
+            ch_alphamissense_vcf = Channel.fromPath("${db_path}/${db_prefix}_AlphaMissense.v3.vcf.gz", checkIfExists: true)
+            ch_alphamissense_tbi = Channel.fromPath("${db_path}/${db_prefix}_AlphaMissense.v3.vcf.gz.tbi", checkIfExists: true)
+            log.info "VEP: 使用 AlphaMissense 数据库: ${db_path}/${db_prefix}_AlphaMissense.v3.vcf.gz"
+        }
+        if (vep_use_evoscore) {
+            ch_evoscore_vcf = Channel.fromPath("${db_path}/${db_prefix}_EVOScore2.vcf.gz", checkIfExists: true)
+            ch_evoscore_tbi = Channel.fromPath("${db_path}/${db_prefix}_EVOScore2.vcf.gz.tbi", checkIfExists: true)
+            log.info "VEP: 使用 EVOScore2 数据库: ${db_path}/${db_prefix}_EVOScore2.vcf.gz"
+        }
+        if (vep_use_civic) {
+            ch_civic_vcf = Channel.fromPath("${db_path}/${db_prefix}_civic.vcf.gz", checkIfExists: true)
+            ch_civic_tbi = Channel.fromPath("${db_path}/${db_prefix}_civic.vcf.gz.tbi", checkIfExists: true)
+            log.info "VEP: 使用 CIViC 数据库: ${db_path}/${db_prefix}_civic.vcf.gz"
+        }
+        if (vep_use_mskcc) {
+            ch_mskcc_vcf = Channel.fromPath("${db_path}/${db_prefix}_mskcc_hotspot.v2.vcf.gz", checkIfExists: true)
+            ch_mskcc_tbi = Channel.fromPath("${db_path}/${db_prefix}_mskcc_hotspot.v2.vcf.gz.tbi", checkIfExists: true)
+            log.info "VEP: 使用 MSKCC hotspot 数据库: ${db_path}/${db_prefix}_mskcc_hotspot.v2.vcf.gz"
+        }
+        if (vep_use_pangolin) {
+            ch_pangolin_vcf = Channel.fromPath("${db_path}/${db_prefix}_pangolin.vcf.gz", checkIfExists: true)
+            ch_pangolin_tbi = Channel.fromPath("${db_path}/${db_prefix}_pangolin.vcf.gz.tbi", checkIfExists: true)
+            log.info "VEP: 使用 Pangolin 数据库: ${db_path}/${db_prefix}_pangolin.vcf.gz"
+        }
+    } else {
+        log.info "VEP: 未提供自定义数据库目录 (vep_db_dir)，仅使用 VEP 内置注释"
+    }
+
+    // SNV/Indel 注释 (带自定义数据库)
     VEP_ANNOTATE(
         ch_vcf,
         ch_vcf_tbi,
@@ -470,7 +533,20 @@ workflow WES_SINGLE {
         vep_use_pick,
         vep_use_refseq_only,
         vep_cache_dir,
-        vep_extra_args
+        vep_extra_args,
+        // 自定义数据库文件
+        ch_gnomad_vcf,
+        ch_gnomad_tbi,
+        ch_alphamissense_vcf,
+        ch_alphamissense_tbi,
+        ch_evoscore_vcf,
+        ch_evoscore_tbi,
+        ch_civic_vcf,
+        ch_civic_tbi,
+        ch_mskcc_vcf,
+        ch_mskcc_tbi,
+        ch_pangolin_vcf,
+        ch_pangolin_tbi
     )
     ch_vep_vcf = ch_vep_vcf.mix(VEP_ANNOTATE.out.vep_vcf)
     ch_vep_vcf_tbi = ch_vep_vcf_tbi.mix(VEP_ANNOTATE.out.vep_vcf_tbi)
