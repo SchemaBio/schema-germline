@@ -23,7 +23,6 @@ process VEP_ANNOTATE {
     tag "VEP on ${vcf.baseName}"
     label 'process_medium'
     label 'vep'
-    publishDir "${params.output}/05.Annotations/SNP_InDel", mode: 'copy'
 
     input:
         path vcf               // 输入 VCF 文件
@@ -160,7 +159,6 @@ process VEP_MT {
     tag "VEP_MT on ${vcf.baseName}"
     label 'process_low'
     label 'vep'
-    publishDir "${params.output}/05.Annotations/Mitochondria", mode: 'copy'
 
     input:
         path vcf               // 输入线粒体 VCF 文件
@@ -246,7 +244,6 @@ process VEP_MEI {
     tag "VEP_MEI on ${vcf.baseName}"
     label 'process_low'
     label 'vep'
-    publishDir "${params.output}/05.Annotations/MEI", mode: 'copy'
 
     input:
         path vcf               // 输入 MEI VCF 文件 (TIEA-WES 输出)

@@ -4,7 +4,6 @@ process XAMDST {
     tag "XAMDST on $sample_id"
     label 'process_low'
     label 'mapping'
-    publishDir "${params.output}/01.QC", mode: 'copy'
 
     input:
         tuple val(sample_id), path(alignment)

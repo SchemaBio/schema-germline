@@ -17,7 +17,6 @@ process WHATSHAP_PHASE {
     tag "WHATSHAP on ${alignment.baseName}"
     label 'process_medium'
     label 'whatshap'
-    publishDir "${params.output}/03.Variant/Phasing", mode: 'copy'
 
     input:
         path vcf                   // 输入 VCF 文件 (未定相的变异)
@@ -74,7 +73,6 @@ process WHATSHAP_HAPLOTAG {
     tag "HAPLOTAG on ${alignment.baseName}"
     label 'process_medium'
     label 'whatshap'
-    publishDir "${params.output}/03.Variant/Phasing", mode: 'copy'
 
     input:
         path vcf                   // 定相后的 VCF 文件
@@ -122,7 +120,6 @@ process WHATSHAP_STATS {
     tag "STATS on ${vcf.baseName}"
     label 'process_low'
     label 'whatshap'
-    publishDir "${params.output}/03.Variant/Phasing", mode: 'copy'
 
     input:
         path vcf                   // 定相后的 VCF 文件

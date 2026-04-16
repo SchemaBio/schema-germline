@@ -14,7 +14,6 @@ process DEEPVARIANT {
     tag "DEEPVARIANT on ${alignment.baseName}"
     label 'process_high'
     label 'deepvariant'
-    publishDir "${params.output}/03.Variant/DeepVariant", mode: 'copy'
 
     input:
         path alignment           // BAM/CRAM 比对文件

@@ -8,7 +8,6 @@ process SAMTOOLS_INDEX {
     tag "SAMTOOLS_INDEX on ${alignment.baseName}"
     label 'process_low'
     label 'mapping'
-    publishDir "${params.output}/02.Alignment", mode: 'copy'
 
     input:
         path alignment
@@ -28,7 +27,6 @@ process SEX_CHECK_SRY {
     tag "SEX_CHECK_SRY on ${alignment.baseName}"
     label 'process_low'
     label 'mapping'
-    publishDir "${params.output}/01.QC", mode: 'copy'
 
     input:
         path alignment

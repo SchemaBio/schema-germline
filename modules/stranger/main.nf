@@ -17,7 +17,6 @@ process STRANGER_ANNOTATE {
     tag "STRANGER on ${vcf.baseName}"
     label 'process_low'
     label 'cnvkit'  // Stranger 包含在 cnvkit 容器中
-    publishDir "${params.output}/05.Annotations/STR", mode: 'copy'
 
     input:
         path vcf                   // ExpansionHunter 输出的 VCF 文件
@@ -90,7 +89,6 @@ process STRANGER_FILTER {
     tag "STRANGER_FILTER on ${vcf.baseName}"
     label 'process_low'
     label 'cnvkit'
-    publishDir "${params.output}/05.Annotations/STR", mode: 'copy'
 
     input:
         path vcf                   // Stranger 注释后的 VCF 文件

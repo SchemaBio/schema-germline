@@ -9,7 +9,6 @@ process FASTP {
     tag "FASTP on $sample_id"
     label 'process_medium'
     label 'mapping'
-    publishDir "${params.output}/01.QC", mode: 'copy'
 
     input:
         tuple val(sample_id), path(read1), path(read2)
@@ -39,7 +38,6 @@ process COLLECTQCMETRICS {
     tag "COLLECTQCMETRICS on $sample_id"
     label 'gatk'
     label 'process_medium'
-    publishDir "${params.output}/01.QC", mode: 'copy'
 
     input:
         tuple val(sample_id), path(cram), path(crai)

@@ -9,7 +9,6 @@ process PB_FQ2BAM {
     tag "PB_FQ2BAM on $sample_id"
     label 'process_medium'
     label 'parabricks'
-    publishDir "${params.output}/02.Alignment", mode: 'copy'
 
     input:
         tuple val(sample_id), path(reads)
@@ -66,7 +65,6 @@ process PB_DEEPVARIANT {
     tag "PB_DEEPVARIANT on ${alignment.baseName}"
     label 'process_medium'
     label 'parabricks'
-    publishDir "${params.output}/03.Variant/DeepVariant", mode: 'copy'
 
     input:
         path alignment           // BAM/CRAM 比对文件

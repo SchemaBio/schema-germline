@@ -92,6 +92,24 @@ workflow WES_SINGLE {
     val vep_use_pangolin        // 是否使用 Pangolin 基因组注释 (boolean, 默认 true)
     // Stranger 参数
     val stranger_filter_mode    // Stranger 过滤模式: 'pathogenic', 'borderline', 'all_disease' (默认 pathogenic)
+    // 输出目录参数
+    val fastp_output_dir           // FASTP 输出目录
+    val collectqc_output_dir       // COLLECTQCMETRICS (GATK) 输出目录
+    val xamdst_output_dir          // XAMDST 覆盖度统计输出目录
+    val samtools_index_output_dir  // SAMTOOLS_INDEX 输出目录
+    val sex_check_output_dir       // SEX_CHECK_SRY 输出目录
+    val markdup_output_dir         // MARKDUPLICATES 输出目录
+    val bwamem_output_dir          // BWAMEM/BWAMEM2 输出目录
+    val pb_fq2bam_output_dir       // PB_FQ2BAM 输出目录
+    val deepvariant_output_dir     // DEEPVARIANT 输出目录
+    val pb_deepvariant_output_dir  // PB_DEEPVARIANT 输出目录
+    val baf_output_dir             // BCFTOOLS_BAF_MATRIX 输出目录
+    val mutect2_mt_output_dir      // MUTECT2_MT 输出目录
+    val stranger_output_dir        // STRANGER 输出目录
+    val vep_output_dir             // VEP_ANNOTATE 输出目录
+    val vep_mt_output_dir          // VEP_MT 输出目录
+    val vep_mei_output_dir         // VEP_MEI 输出目录
+    val tiea_output_dir            // TIEA_WES 输出目录
 
     main:
     // 预定义输出通道
@@ -118,6 +136,7 @@ workflow WES_SINGLE {
     // Step 1: FASTQ 质控过滤
     // =========================================================================
     FASTP(ch_reads)
+    .publishDir(fastp_output_dir ?: 'NO_OUTPUT', mode: 'copy', enabled: fastp_output_dir != 'NO_OUTPUT')
 
     // =========================================================================
     // Step 2: 序列比对 + Step 3: 比对后处理
@@ -142,6 +161,7 @@ workflow WES_SINGLE {
             output_format,
             rgid
         )
+        .publishDir(pb_fq2bam_output_dir ?: 'NO_OUTPUT', mode: 'copy', enabled: pb_fq2bam_output_dir != 'NO_OUTPUT')
         if (output_format == 'bam') {
             ch_alignment = ch_alignment.mix(PB_FQ2BAM.out.bam)
             ch_alignment_index = ch_alignment_index.mix(PB_FQ2BAM.out.bai)
@@ -159,6 +179,7 @@ workflow WES_SINGLE {
             output_format,
             rgid
         )
+        .publishDir(bwamem_output_dir ?: 'NO_OUTPUT', mode: 'copy', enabled: bwamem_output_dir != 'NO_OUTPUT')
         // 根据输出格式选择对应的文件通道
         if (output_format == 'bam') {
             MARKDUPLICATES(
@@ -166,15 +187,18 @@ workflow WES_SINGLE {
                 BWAMEM2.out.bai,
                 ch_fasta
             )
+            .publishDir(markdup_output_dir ?: 'NO_OUTPUT', mode: 'copy', enabled: markdup_output_dir != 'NO_OUTPUT')
         } else {
             MARKDUPLICATES(
                 BWAMEM2.out.cram,
                 BWAMEM2.out.crai,
                 ch_fasta
             )
+            .publishDir(markdup_output_dir ?: 'NO_OUTPUT', mode: 'copy', enabled: markdup_output_dir != 'NO_OUTPUT')
         }
         // 为 MarkDuplicates 输出创建索引
         SAMTOOLS_INDEX(MARKDUPLICATES.out.alignment)
+        .publishDir(samtools_index_output_dir ?: 'NO_OUTPUT', mode: 'copy', enabled: samtools_index_output_dir != 'NO_OUTPUT')
         ch_alignment = ch_alignment.mix(SAMTOOLS_INDEX.out.alignment)
         ch_alignment_index = ch_alignment_index.mix(SAMTOOLS_INDEX.out.index)
         ch_markdup_metrics = ch_markdup_metrics.mix(MARKDUPLICATES.out.metrics)
@@ -188,20 +212,24 @@ workflow WES_SINGLE {
             output_format,
             rgid
         )
+        .publishDir(bwamem_output_dir ?: 'NO_OUTPUT', mode: 'copy', enabled: bwamem_output_dir != 'NO_OUTPUT')
         if (output_format == 'bam') {
             MARKDUPLICATES(
                 BWAMEM.out.bam,
                 BWAMEM.out.bai,
                 ch_fasta
             )
+            .publishDir(markdup_output_dir ?: 'NO_OUTPUT', mode: 'copy', enabled: markdup_output_dir != 'NO_OUTPUT')
         } else {
             MARKDUPLICATES(
                 BWAMEM.out.cram,
                 BWAMEM.out.crai,
                 ch_fasta
             )
+            .publishDir(markdup_output_dir ?: 'NO_OUTPUT', mode: 'copy', enabled: markdup_output_dir != 'NO_OUTPUT')
         }
         SAMTOOLS_INDEX(MARKDUPLICATES.out.alignment)
+        .publishDir(samtools_index_output_dir ?: 'NO_OUTPUT', mode: 'copy', enabled: samtools_index_output_dir != 'NO_OUTPUT')
         ch_alignment = ch_alignment.mix(SAMTOOLS_INDEX.out.alignment)
         ch_alignment_index = ch_alignment_index.mix(SAMTOOLS_INDEX.out.index)
         ch_markdup_metrics = ch_markdup_metrics.mix(MARKDUPLICATES.out.metrics)
@@ -215,6 +243,7 @@ workflow WES_SINGLE {
     ch_alignment_tuple = ch_alignment.combine(ch_sample_id).map { alignment, sample_id -> tuple(sample_id, alignment) }
 
     XAMDST(ch_alignment_tuple, ch_target_bed)
+    .publishDir(xamdst_output_dir ?: 'NO_OUTPUT', mode: 'copy', enabled: xamdst_output_dir != 'NO_OUTPUT')
 
     // =========================================================================
     // Step 4b: 覆盖度统计 (线粒体)
@@ -224,6 +253,7 @@ workflow WES_SINGLE {
     ch_alignment_tuple_mt = ch_alignment.combine(ch_sample_id_mt).map { alignment, sample_id_mt -> tuple(sample_id_mt, alignment) }
 
     XAMDST.mt(ch_alignment_tuple_mt, ch_mt_bed)
+    .publishDir(xamdst_output_dir ?: 'NO_OUTPUT', mode: 'copy', enabled: xamdst_output_dir != 'NO_OUTPUT')
 
     // =========================================================================
     // Step 5: 比对质量统计 (GATK CollectMultipleMetrics)
@@ -234,6 +264,7 @@ workflow WES_SINGLE {
         ch_fasta,
         ch_target_bed
     )
+    .publishDir(collectqc_output_dir ?: 'NO_OUTPUT', mode: 'copy', enabled: collectqc_output_dir != 'NO_OUTPUT')
 
     // =========================================================================
     // Step 6: 性别检测 (基于 SRY 区域 reads 数)
@@ -244,6 +275,7 @@ workflow WES_SINGLE {
         genome_assembly,
         sex_check_threshold
     )
+    .publishDir(sex_check_output_dir ?: 'NO_OUTPUT', mode: 'copy', enabled: sex_check_output_dir != 'NO_OUTPUT')
 
     // =========================================================================
     // Step 7: BAF 矩阵计算 (基于 SNP 位点)
@@ -256,6 +288,7 @@ workflow WES_SINGLE {
         ch_snp_positions,
         baf_max_depth
     )
+    .publishDir(baf_output_dir ?: 'NO_OUTPUT', mode: 'copy', enabled: baf_output_dir != 'NO_OUTPUT')
 
     // =========================================================================
     // Step 8: SNV/Indel 变异检测 (DeepVariant)
@@ -277,6 +310,7 @@ workflow WES_SINGLE {
             deepvariant_model,
             deepvariant_shards
         )
+        .publishDir(pb_deepvariant_output_dir ?: 'NO_OUTPUT', mode: 'copy', enabled: pb_deepvariant_output_dir != 'NO_OUTPUT')
         ch_vcf = ch_vcf.mix(PB_DEEPVARIANT.out.vcf)
         ch_vcf_tbi = ch_vcf_tbi.mix(PB_DEEPVARIANT.out.vcf_tbi)
         ch_gvcf = ch_gvcf.mix(PB_DEEPVARIANT.out.gvcf)
@@ -294,6 +328,7 @@ workflow WES_SINGLE {
             deepvariant_model,
             deepvariant_shards
         )
+        .publishDir(deepvariant_output_dir ?: 'NO_OUTPUT', mode: 'copy', enabled: deepvariant_output_dir != 'NO_OUTPUT')
         ch_vcf = ch_vcf.mix(DEEPVARIANT.out.vcf)
         ch_vcf_tbi = ch_vcf_tbi.mix(DEEPVARIANT.out.vcf_tbi)
         ch_gvcf = ch_gvcf.mix(DEEPVARIANT.out.gvcf)
@@ -311,6 +346,7 @@ workflow WES_SINGLE {
         ch_fasta_dict,
         genome_assembly
     )
+    .publishDir(mutect2_mt_output_dir ?: 'NO_OUTPUT', mode: 'copy', enabled: mutect2_mt_output_dir != 'NO_OUTPUT')
 
     // =========================================================================
     // Step 9: 单倍型定相 (WhatsHap)
@@ -430,6 +466,7 @@ workflow WES_SINGLE {
         genome_assembly,
         expansionhunter_output_dir
     )
+    .publishDir(stranger_output_dir ?: 'NO_OUTPUT', mode: 'copy', enabled: stranger_output_dir != 'NO_OUTPUT')
 
     ch_str = ch_str.mix(STRANGER_ANNOTATE.out.vcf)
     ch_str = ch_str.mix(STRANGER_ANNOTATE.out.vcf_tbi)
@@ -442,6 +479,7 @@ workflow WES_SINGLE {
         stranger_filter_mode,
         expansionhunter_output_dir
     )
+    .publishDir(stranger_output_dir ?: 'NO_OUTPUT', mode: 'copy', enabled: stranger_output_dir != 'NO_OUTPUT')
 
     ch_str = ch_str.mix(STRANGER_FILTER.out.filtered_vcf)
     ch_str = ch_str.mix(STRANGER_FILTER.out.filtered_vcf_tbi)
@@ -461,6 +499,7 @@ workflow WES_SINGLE {
         tiea_cluster_window,
         tiea_threads
     )
+    .publishDir(tiea_output_dir ?: 'NO_OUTPUT', mode: 'copy', enabled: tiea_output_dir != 'NO_OUTPUT')
 
     ch_mei = ch_mei.mix(TIEA_WES.out.vcf)
     ch_mei = ch_mei.mix(TIEA_WES.out.vcf_tbi)
@@ -548,6 +587,7 @@ workflow WES_SINGLE {
         ch_pangolin_vcf,
         ch_pangolin_tbi
     )
+    .publishDir(vep_output_dir ?: 'NO_OUTPUT', mode: 'copy', enabled: vep_output_dir != 'NO_OUTPUT')
     ch_vep_vcf = ch_vep_vcf.mix(VEP_ANNOTATE.out.vep_vcf)
     ch_vep_vcf_tbi = ch_vep_vcf_tbi.mix(VEP_ANNOTATE.out.vep_vcf_tbi)
 
@@ -561,6 +601,7 @@ workflow WES_SINGLE {
         vep_cache_dir,
         vep_extra_args
     )
+    .publishDir(vep_mt_output_dir ?: 'NO_OUTPUT', mode: 'copy', enabled: vep_mt_output_dir != 'NO_OUTPUT')
     ch_vep_mt_vcf = ch_vep_mt_vcf.mix(VEP_MT.out.vep_vcf)
     ch_vep_mt_vcf_tbi = ch_vep_mt_vcf_tbi.mix(VEP_MT.out.vep_vcf_tbi)
 
@@ -576,6 +617,7 @@ workflow WES_SINGLE {
         vep_cache_dir,
         vep_extra_args
     )
+    .publishDir(vep_mei_output_dir ?: 'NO_OUTPUT', mode: 'copy', enabled: vep_mei_output_dir != 'NO_OUTPUT')
     ch_vep_mei_vcf = ch_vep_mei_vcf.mix(VEP_MEI.out.vep_vcf)
     ch_vep_mei_vcf_tbi = ch_vep_mei_vcf_tbi.mix(VEP_MEI.out.vep_vcf_tbi)
 

@@ -7,7 +7,6 @@ process BCFTOOLS_BAF_MATRIX {
     tag "BCFTOOLS_BAF_MATRIX on ${alignment.baseName}"
     label 'process_low'
     label 'base'
-    publishDir "${params.output}/03.Variant/BAF", mode: 'copy'
 
     input:
         path alignment         // BAM/CRAM 比对文件

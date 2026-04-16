@@ -9,7 +9,6 @@ process BWAMEM {
     tag "BWAMEM on $sample_id"
     label 'process_high'
     label 'mapping'
-    publishDir "${params.output}/02.Alignment", mode: 'copy'
 
     input:
         tuple val(sample_id), path(reads)
@@ -46,7 +45,6 @@ process BWAMEM2 {
     tag "BWAMEM2 on $sample_id"
     label 'process_high'
     label 'mapping'
-    publishDir "${params.output}/02.Alignment", mode: 'copy'
 
     input:
         tuple val(sample_id), path(reads)

@@ -114,7 +114,6 @@ process CNVKIT_BATCH {
     tag "CNVKIT_BATCH on ${alignment.baseName}"
     label 'process_low'
     label 'cnvkit'
-    publishDir "${params.output}/04.CNV", mode: 'copy'
 
     input:
         path alignment          // BAM/CRAM 比对文件

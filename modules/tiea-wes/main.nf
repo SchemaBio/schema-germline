@@ -17,7 +17,6 @@ process TIEA_WES {
     tag "TIEA_WES on ${alignment.baseName}"
     label 'process_low'
     label 'tiea_wes'
-    publishDir "${params.output}/05.Other/MEI", mode: 'copy'
 
     input:
         path alignment           // BAM/CRAM 比对文件

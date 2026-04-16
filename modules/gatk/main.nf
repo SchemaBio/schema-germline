@@ -9,7 +9,6 @@ process MARKDUPLICATES {
     tag "MARKDUPLICATES on $sample_id"
     label 'gatk'
     label 'process_medium'
-    publishDir "${params.output}/02.Alignment", mode: 'copy'
 
     input:
         path alignment      // BAM/CRAM 文件 (文件名包含 sample_id)
@@ -37,7 +36,6 @@ process COLLECTQCMETRICS {
     tag "COLLECTQCMETRICS on ${alignment.baseName}"
     label 'gatk'
     label 'process_medium'
-    publishDir "${params.output}/01.QC", mode: 'copy'
 
     input:
         path alignment
@@ -70,7 +68,6 @@ process MUTECT2_MT {
     tag "MUTECT2_MT on ${alignment.baseName}"
     label 'gatk'
     label 'process_medium'
-    publishDir "${params.output}/03.Variant/Mitochondria", mode: 'copy'
 
     input:
         path alignment           // BAM/CRAM 比对文件
