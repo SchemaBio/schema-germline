@@ -63,13 +63,13 @@ process BWAMEM2 {
     def threads = task.cpus
     if (output_format == 'bam') {
         """
-        bwa-mem2 mem -t ${threads} -M -R "@RG\\tID:${rgid}\\tSM:${sample_id}\\tPL:SCHEMABIO\\tPU:Somatic" $fasta $reads \\
+        bwa-mem2 mem -t ${threads} -M -R "@RG\\tID:${rgid}\\tSM:${sample_id}\\tPL:SCHEMABIO\\tPU:Germline" $fasta $reads \\
             | samtools sort -@ ${threads} -O bam -o ${sample_id}.bam -
         samtools index -@ ${threads} ${sample_id}.bam
         """
     } else {
         """
-        bwa-mem2 mem -t ${threads} -M -R "@RG\\tID:${rgid}\\tSM:${sample_id}\\tPL:SCHEMABIO\\tPU:Somatic" $fasta $reads \\
+        bwa-mem2 mem -t ${threads} -M -R "@RG\\tID:${rgid}\\tSM:${sample_id}\\tPL:SCHEMABIO\\tPU:Germline" $fasta $reads \\
             | samtools sort -@ ${threads} \\
             --reference ${fasta} -O cram --output-fmt-option version=3.0 -o ${sample_id}.cram -
         samtools index -@ ${threads} ${sample_id}.cram
