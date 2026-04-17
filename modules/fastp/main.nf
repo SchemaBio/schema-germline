@@ -40,7 +40,7 @@ process COLLECTQCMETRICS {
     label 'process_medium'
 
     input:
-        tuple val(sample_id), path(cram), path(crai)
+        tuple val(sample_id), path(bam), path(bai)
         val   fasta
         val   fasta_dict
         val   bed
@@ -65,13 +65,13 @@ process COLLECTQCMETRICS {
         --TMP_DIR tmp \\
         --BAIT_INTERVALS Bait.interval_list \\
         --TARGET_INTERVALS Bait.interval_list \\
-        --INPUT ${cram} \\
+        --INPUT ${bam} \\
         --OUTPUT ${sample_id}.hs_metrics.txt
 
     gatk CollectInsertSizeMetrics \\
         --VALIDATION_STRINGENCY SILENT \\
         --TMP_DIR tmp \\
-        --INPUT ${cram} \\
+        --INPUT ${bam} \\
         --OUTPUT ${sample_id}.insert_size_metrics.txt \\
         --Histogram_FILE ${sample_id}.insert_size_histogram.pdf
 
@@ -79,7 +79,7 @@ process COLLECTQCMETRICS {
         --MAX_RECORDS_IN_RAM 303942330 \\
         --VALIDATION_STRINGENCY SILENT \\
         --TMP_DIR tmp \\
-        --INPUT ${cram} \\
+        --INPUT ${bam} \\
         --OUTPUT ${sample_id}.est_lib_complex_metrics.txt
     """
 }

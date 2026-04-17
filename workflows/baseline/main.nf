@@ -2,7 +2,7 @@
  * CNV Baseline Pipeline
  *
  * 功能：使用多个正常样本构建 CNVkit 参考基线
- * 输入：多个正常样本的 BAM/CRAM 文件 + 预制的 target/antitarget BED
+ * 输入：多个正常样本的 BAM 文件 + 预制的 target/antitarget BED
  * 输出：reference.cnn 基线文件
  *
  * 使用方法：
@@ -14,12 +14,12 @@
  *
  * 输入 CSV 格式：
  *   sample_id,bam,bai
- *   normal1,/path/to/normal1.cram,/path/to/normal1.cram.crai
+ *   normal1,/path/to/normal1.bam,/path/to/normal1.bam.bai
  *   normal2,/path/to/normal2.bam,/path/to/normal2.bam.bai
  *
  * 说明：
  *   - 至少需要 1 个正常样本，推荐 >= 5 个以获得稳定基线
- *   - 支持 BAM 和 CRAM 格式
+ *   - 支持 BAM 格式
  *   - 使用预制的带注释 target/antitarget BED，与用户 BED 取交集
  */
 

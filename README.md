@@ -1,31 +1,29 @@
 # Schema Germline Pipeline
 
-基于 Nextflow DSL2 的胚系变异检测流程。
+基于 Nextflow DSL2 的全外显子胚系变异检测流程。
 
 ## 快速开始
 
 ### 1. 环境要求
 
-- Docker / Podman / Singularity (根据运行环境选择)
+- Docker
+- Nextflow
 - 自部署镜像已拉取（见下文）
 
 ### 2. 拉取镜像
 
 ```bash
-# Nextflow 镜像
-docker pull docker.biotools.space/schemabio/nextflow:25.10.4
-
 # 流程依赖的其他镜像（自动按需拉取）
-docker pull docker.biotools.space/schemabio/mapping:2026Jan
-docker pull docker.biotools.space/schemabio/gatk:4.6.2.0
-docker pull docker.biotools.space/schemabio/cnvkit:v0.9.11.p4
-docker pull docker.biotools.space/schemabio/expansionhunter:5.0.0
-docker pull docker.biotools.space/schemabio/deepvariant:1.10.0
-docker pull docker.biotools.space/schemabio/ensembl-vep:release_115.2
-docker pull docker.biotools.space/schemabio/glnexus:v1.4.1
-docker pull docker.biotools.space/schemabio/core:v2.0.0
-docker pull docker.biotools.space/schemabio/statistical:v2.0.0
-docker pull docker.biotools.space/schemabio/base:v2.0.0
+docker pull docker.schema-bio.com/schemabio/mapping:v1.0.0
+docker pull docker.schema-bio.com/schemabio/gatk:4.6.2.0
+docker pull docker.schema-bio.com/schemabio/cnvkit:v0.9.13
+docker pull docker.schema-bio.com/schemabio/expansionhunter:5.0.0
+docker pull docker.schema-bio.com/schemabio/deepvariant:1.10.0
+docker pull docker.schema-bio.com/schemabio/vep:release_115.2
+docker pull docker.schema-bio.com/schemabio/glnexus:v1.4.1
+docker pull docker.schema-bio.com/schemabio/core:v2.0.0
+docker pull docker.schema-bio.com/schemabio/statistical:v2.0.0
+docker pull docker.schema-bio.com/schemabio/base:v2.0.0
 ```
 
 ### 3. 准备配置文件
@@ -60,7 +58,7 @@ docker run --rm -it \
     -v ${PIPELINE_DIR}:/pipeline:ro \
     -v ${WORKDIR}:${WORKDIR} \
     -w ${WORKDIR} \
-    docker.biotools.space/schemabio/nextflow:25.10.4 \
+    docker.schema-bio.com/schemabio/nextflow:25.10.4 \
     nextflow run /pipeline/main.nf \
         -config /pipeline/conf/wes_single.config \
         --config /pipeline/examples/sample.json \
@@ -69,7 +67,7 @@ docker run --rm -it \
 
 #### 质控+比对流程 QC_ALIGNMENT
 
-仅进行 FASTP 质控和 BWA 比对，输出 sorted.cram：
+仅进行 FASTP 质控和 BWA 比对，输出 sorted.bam：
 
 ```bash
 docker run --rm -it \
@@ -77,7 +75,7 @@ docker run --rm -it \
     -v ${PIPELINE_DIR}:/pipeline:ro \
     -v ${WORKDIR}:${WORKDIR} \
     -w ${WORKDIR} \
-    docker.biotools.space/schemabio/nextflow:25.10.4 \
+    docker.schema-bio.com/schemabio/nextflow:25.10.4 \
     nextflow run /pipeline/main.nf \
         -entry QC_ALIGNMENT \
         -config /pipeline/conf/qc_alignment.config \
@@ -95,7 +93,7 @@ docker run --rm -it \
     -v ${PIPELINE_DIR}:/pipeline:ro \
     -v ${WORKDIR}:${WORKDIR} \
     -w ${WORKDIR} \
-    docker.biotools.space/schemabio/nextflow:25.10.4 \
+    docker.schema-bio.com/schemabio/nextflow:25.10.4 \
     nextflow run /pipeline/main.nf \
         -entry CNV_BASELINE \
         -config /pipeline/conf/cnv_baseline.config \
@@ -127,7 +125,7 @@ docker run --rm -it \
 ### WES_SINGLE (默认完整流程)
 
 ```
-FASTP (质控过滤) -> BWA_MEM2 (比对) -> GATK_MARKDUPLICATES (标记重复) -> CRAM
+FASTP (质控过滤) -> BWA_MEM2 (比对) -> GATK_MARKDUPLICATES (标记重复) -> BAM
     -> DEEPVARIANT (SNV/INDEL) -> WHATSHAP (定相) -> VEP (注释) -> GENMOD (遗传模式)
     -> GATK_MUTECT2_MT (线粒体)
     -> EXPANSIONHUNTER (STR) -> STRANGER (STR注释)
@@ -139,10 +137,10 @@ FASTP (质控过滤) -> BWA_MEM2 (比对) -> GATK_MARKDUPLICATES (标记重复) 
 ### QC_ALIGNMENT (质控+比对)
 
 ```
-FASTP (质控过滤) -> BWA_MEM2 (比对) -> CRAM
+FASTP (质控过滤) -> BWA_MEM2 (比对) -> BAM
 ```
 
-输出：质控报告 + sorted.cram
+输出：质控报告 + sorted.bam
 
 ### CNV_BASELINE (CNV基线构建)
 
@@ -173,7 +171,7 @@ CNVKIT_TARGET + CNVKIT_ANTITARGET -> CNVKIT_REFERENCE_BUILD
 | fastp | FASTQ 质控过滤 | mapping:2026Jan |
 | bwa | 序列比对 (内存<64GB) | mapping:2026Jan |
 | bwa-mem2 | 序列比对 (内存≥64GB) | mapping:2026Jan |
-| samtools | BAM/CRAM 处理 | mapping:2026Jan |
+| samtools | BAM 处理 | mapping:2026Jan |
 | bamdst | 覆盖度统计 | mapping:2026Jan |
 
 #### 变异检测
@@ -222,7 +220,7 @@ CNVKIT_TARGET + CNVKIT_ANTITARGET -> CNVKIT_REFERENCE_BUILD
 
 ### Docker 镜像列表
 
-所有镜像托管于 `docker.biotools.space/schemabio/`：
+所有镜像托管于 `docker.schema-bio.com/schemabio/`：
 
 | 镜像 | 主要包含工具 |
 |------|-------------|
@@ -296,7 +294,7 @@ schema-germline/
 ├── modules/local/               # 本地模块 (19个)
 │   ├── fastp/main.nf            # 质控过滤
 │   ├── bwa_mem2/main.nf         # 比对
-│   ├── samtools/main.nf         # BAM/CRAM 处理
+│   ├── samtools/main.nf         # BAM 处理
 │   ├── gatk/main.nf             # GATK 工具集
 │   ├── deepvariant/main.nf      # SNV/INDEL 检测
 │   ├── vep/main.nf              # 变异注释
@@ -360,8 +358,8 @@ results/
     │   ├── *.region*.txt        # 区域覆盖度
     │   └── *.sex*.txt           # 性别检查结果
     ├── 02.Alignment/            # 比对结果
-    │   ├── *.marked.cram        # 去重后的 CRAM
-    │   └── *.marked.cram.crai   # CRAM 索引
+    │   ├── *.marked.bam         # 去重后的 BAM
+    │   └── *.marked.bam.bai     # BAM 索引
     ├── 03.Mutations/             # 变异结果
     │   ├── snv_indel/           # SNP/INDEL
     │   │   ├── *.vcf.gz         # DeepVariant VCF

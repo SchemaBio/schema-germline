@@ -1,5 +1,5 @@
 // Samtools 模块
-// 用途：为 BAM/CRAM 文件创建索引、性别检测
+// 用途：为 BAM 文件创建索引、性别检测
 // 包含的process：
 //   SAMTOOLS_INDEX - 创建索引
 //   SEX_CHECK_SRY - 基于 SRY 读数的性别检测
@@ -49,7 +49,7 @@ process SEX_CHECK_SRY {
     def sry_nochr = sry_regions[assembly]['nochr']
     def sry_chr = sry_regions[assembly]['chr']
     def thresh = threshold ?: 10
-    def sample_id = alignment.baseName.replaceAll(/\.(marked|bam|cram)$/, '')
+    def sample_id = alignment.baseName.replaceAll(/\.(marked|bam)$/, '')
     """
     # 检测染色体命名方式
     CHR_STYLE=\$(samtools view -H ${alignment} 2>/dev/null | grep -E "^@SQ.*SN:(chr)?Y" | head -1 | grep -o "SN:chr" || echo "")

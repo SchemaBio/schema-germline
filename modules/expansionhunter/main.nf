@@ -18,7 +18,7 @@ process EXPANSIONHUNTER {
     label 'expansionhunter'
 
     input:
-        path alignment           // BAM/CRAM 比对文件
+        path alignment           // BAM 比对文件
         path alignment_index     // 比对文件索引
         path fasta               // 参考基因组 FASTA
         path fasta_fai           // 参考基因组索引 (.fai)
@@ -38,7 +38,7 @@ process EXPANSIONHUNTER {
     output_dir != 'NO_OUTPUT'
 
     script:
-    def sample_id = alignment.baseName.replaceAll(/\.(marked|bam|cram)$/, '')
+    def sample_id = alignment.baseName.replaceAll(/\.(marked|bam)$/, '')
     def sex_param = sex ? "--sex ${sex}" : ''
     def anchor = min_anchor ?: 8
     def irr = max_irr_mapping ?: 100

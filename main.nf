@@ -117,7 +117,6 @@ workflow {
         ch_target_bed,
         ch_mt_bed,
         ch_snp_positions,
-        config.output_format ?: 'cram',     // output_format
         config.sample_id,                     // rgid
         config.use_gpu ?: false,              // use_gpu
         config.genome_assembly ?: 'GRCh38',   // genome_assembly
@@ -220,12 +219,12 @@ workflow CNV_BASELINE {
     ch_annotate = config.annotate ? Channel.value(file(config.annotate)) : Channel.empty()
     ch_access   = config.access_bed ? Channel.value(file(config.access_bed)) : Channel.empty()
 
-    // 准备样本 BAM/CRAM 通道
+    // 准备样本 BAM 文件通道
     ch_alignments = Channel.create()
     config.samples.each { sample ->
         def sample_id = sample.sample_id ?: sample.id
-        def alignment = sample.bam ?: sample.cram
-        def index = sample.bai ?: sample.crai
+        def alignment = sample.bam
+        def index = sample.bai
 
         if (alignment) {
             ch_alignments = ch_alignments.mix(

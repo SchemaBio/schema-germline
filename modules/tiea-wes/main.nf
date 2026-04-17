@@ -6,8 +6,7 @@
 // 说明：
 //   - 检测 Alu、LINE-1、SVA、HERV 等转座子插入事件
 //   - 基于 softclip 信号的 bidirectional 检测 (5' 和 3')
-//   - 支持 BAM 和 CRAM 输入格式
-//   - CRAM 输入需要提供参考基因组
+//   - 支持 BAM 输入格式
 //   - Docker 镜像已包含 TE 基因组参考 (hg38reps.fa) 和配置
 
 // ============================================================================
@@ -19,9 +18,9 @@ process TIEA_WES {
     label 'tiea_wes'
 
     input:
-        path alignment           // BAM/CRAM 比对文件
+        path alignment           // BAM 比对文件
         path alignment_index     // 比对文件索引
-        path fasta               // 参考基因组 FASTA (CRAM 必需，BAM 可选用于真实 REF bases)
+        path fasta               // 参考基因组 FASTA
         val sample_id            // 样本标识符
         val min_support          // 最小断点支持 reads 数 (默认 10)
         val min_softclip         // 最小 softclip 长度 (默认 36)

@@ -11,21 +11,21 @@ process MARKDUPLICATES {
     label 'process_medium'
 
     input:
-        path alignment      // BAM/CRAM 文件 (文件名包含 sample_id)
-        path alignment_index // BAM/CRAM 索引文件
+        path alignment      // BAM 文件 (文件名包含 sample_id)
+        path alignment_index // BAM 索引文件
         val fasta           // 参考基因组路径
 
     output:
-        path("*marked.{cram,bam}"), emit: alignment
+        path "*.marked.bam", emit: alignment
         path("*.marked.metrics.txt"), emit: metrics
 
     script:
     // 从文件名提取 sample_id
-    def sample_id = alignment.baseName.replaceAll(/\.(bam|cram)$/, '')
+    def sample_id = alignment.baseName.replaceAll(/\.bam$/, '')
     """
     gatk MarkDuplicates \\
         -I ${alignment} \\
-        -O ${sample_id}.marked.${alignment.name.endsWith('.bam') ? 'bam' : 'cram'} \\
+        -O ${sample_id}.marked.bam \\
         -M ${sample_id}.marked.metrics.txt \\
         --CREATE_INDEX false \\
         --REFERENCE_SEQUENCE ${fasta}
@@ -48,7 +48,7 @@ process COLLECTQCMETRICS {
         path "*.pdf", emit: pdf, optional: true
 
     script:
-    def sample_id = alignment.baseName.replaceAll(/\.(marked|bam|cram)$/, '')
+    def sample_id = alignment.baseName.replaceAll(/\.(marked|bam)$/, '')
     """
     gatk CollectMultipleMetrics \\
         -I ${alignment} \\
@@ -70,8 +70,8 @@ process MUTECT2_MT {
     label 'process_medium'
 
     input:
-        path alignment           // BAM/CRAM 比对文件
-        path alignment_index     // 比对文件索引 (.bai/.crai)
+        path alignment           // BAM 比对文件
+        path alignment_index     // 比对文件索引 (.bai)
         path fasta               // 参考基因组 FASTA (包含线粒体序列)
         path fasta_fai           // 参考基因组索引
         path fasta_dict          // 参考基因组字典
@@ -83,7 +83,7 @@ process MUTECT2_MT {
         path "*.mt.vcf.gz.stats", emit: stats
 
     script:
-    def sample_id = alignment.baseName.replaceAll(/\.(marked|bam|cram)$/, '')
+    def sample_id = alignment.baseName.replaceAll(/\.(marked|bam)$/, '')
     // 线粒体染色体名称映射
     // GRCh37/GRCh38 可能使用不同的命名: MT, chrM, chrMT, M
     """

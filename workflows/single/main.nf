@@ -40,7 +40,6 @@ workflow WES_SINGLE {
     ch_target_bed            // 捕获区域 BED 文件 (常染色体/全外显子)
     ch_mt_bed                // 线粒体区域 BED 文件
     ch_snp_positions         // SNP 位点文件 (VCF/BED)，用于 BAF 计算
-    val output_format        // 输出格式: 'cram' 或 'bam' (string)
     val rgid                 // Read Group ID (string)
     val use_gpu              // 是否使用 GPU (boolean)
     val genome_assembly      // 基因组版本: 'GRCh37' 或 'GRCh38'
@@ -158,17 +157,11 @@ workflow WES_SINGLE {
             FASTP.out.clean_reads,
             ch_fasta,
             ch_fasta_fai,
-            output_format,
             rgid
         )
         .publishDir(pb_fq2bam_output_dir ?: 'NO_OUTPUT', mode: 'copy', enabled: pb_fq2bam_output_dir != 'NO_OUTPUT')
-        if (output_format == 'bam') {
-            ch_alignment = ch_alignment.mix(PB_FQ2BAM.out.bam)
-            ch_alignment_index = ch_alignment_index.mix(PB_FQ2BAM.out.bai)
-        } else {
-            ch_alignment = ch_alignment.mix(PB_FQ2BAM.out.cram)
-            ch_alignment_index = ch_alignment_index.mix(PB_FQ2BAM.out.crai)
-        }
+        ch_alignment = ch_alignment.mix(PB_FQ2BAM.out.bam)
+        ch_alignment_index = ch_alignment_index.mix(PB_FQ2BAM.out.bai)
     } else if (has_high_resources) {
         // 高资源模式：BWA-MEM2 + MARKDUPLICATES + SAMTOOLS_INDEX
         log.info "比对模式: BWA-MEM2 + MarkDuplicates (max_memory: ${params.max_memory})"
@@ -176,26 +169,15 @@ workflow WES_SINGLE {
             FASTP.out.clean_reads,
             ch_fasta,
             ch_fasta_fai,
-            output_format,
             rgid
         )
         .publishDir(bwamem_output_dir ?: 'NO_OUTPUT', mode: 'copy', enabled: bwamem_output_dir != 'NO_OUTPUT')
-        // 根据输出格式选择对应的文件通道
-        if (output_format == 'bam') {
-            MARKDUPLICATES(
-                BWAMEM2.out.bam,
-                BWAMEM2.out.bai,
-                ch_fasta
-            )
-            .publishDir(markdup_output_dir ?: 'NO_OUTPUT', mode: 'copy', enabled: markdup_output_dir != 'NO_OUTPUT')
-        } else {
-            MARKDUPLICATES(
-                BWAMEM2.out.cram,
-                BWAMEM2.out.crai,
-                ch_fasta
-            )
-            .publishDir(markdup_output_dir ?: 'NO_OUTPUT', mode: 'copy', enabled: markdup_output_dir != 'NO_OUTPUT')
-        }
+        MARKDUPLICATES(
+            BWAMEM2.out.bam,
+            BWAMEM2.out.bai,
+            ch_fasta
+        )
+        .publishDir(markdup_output_dir ?: 'NO_OUTPUT', mode: 'copy', enabled: markdup_output_dir != 'NO_OUTPUT')
         // 为 MarkDuplicates 输出创建索引
         SAMTOOLS_INDEX(MARKDUPLICATES.out.alignment)
         .publishDir(samtools_index_output_dir ?: 'NO_OUTPUT', mode: 'copy', enabled: samtools_index_output_dir != 'NO_OUTPUT')
@@ -209,25 +191,15 @@ workflow WES_SINGLE {
             FASTP.out.clean_reads,
             ch_fasta,
             ch_fasta_fai,
-            output_format,
             rgid
         )
         .publishDir(bwamem_output_dir ?: 'NO_OUTPUT', mode: 'copy', enabled: bwamem_output_dir != 'NO_OUTPUT')
-        if (output_format == 'bam') {
-            MARKDUPLICATES(
-                BWAMEM.out.bam,
-                BWAMEM.out.bai,
-                ch_fasta
-            )
-            .publishDir(markdup_output_dir ?: 'NO_OUTPUT', mode: 'copy', enabled: markdup_output_dir != 'NO_OUTPUT')
-        } else {
-            MARKDUPLICATES(
-                BWAMEM.out.cram,
-                BWAMEM.out.crai,
-                ch_fasta
-            )
-            .publishDir(markdup_output_dir ?: 'NO_OUTPUT', mode: 'copy', enabled: markdup_output_dir != 'NO_OUTPUT')
-        }
+        MARKDUPLICATES(
+            BWAMEM.out.bam,
+            BWAMEM.out.bai,
+            ch_fasta
+        )
+        .publishDir(markdup_output_dir ?: 'NO_OUTPUT', mode: 'copy', enabled: markdup_output_dir != 'NO_OUTPUT')
         SAMTOOLS_INDEX(MARKDUPLICATES.out.alignment)
         .publishDir(samtools_index_output_dir ?: 'NO_OUTPUT', mode: 'copy', enabled: samtools_index_output_dir != 'NO_OUTPUT')
         ch_alignment = ch_alignment.mix(SAMTOOLS_INDEX.out.alignment)
@@ -628,7 +600,7 @@ workflow WES_SINGLE {
     clean_reads             = FASTP.out.clean_reads              // 过滤后的 FASTQ
     json_report             = FASTP.out.json_report              // JSON QC 报告
     html_report             = FASTP.out.html_report              // HTML QC 报告
-    alignment               = ch_alignment                       // BAM/CRAM 比对文件
+    alignment               = ch_alignment                       // BAM 比对文件
     alignment_index         = ch_alignment_index                 // 比对文件索引
     markdup_metrics         = ch_markdup_metrics                 // MarkDuplicates 质控报告 (非GPU模式)
     coverage_report         = XAMDST.out.coverage_report         // 覆盖度统计报告 (常染色体/全外显子)

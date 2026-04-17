@@ -14,51 +14,30 @@ process PB_FQ2BAM {
         tuple val(sample_id), path(reads)
         path fasta
         path fasta_index
-        val output_format
         val rgid
 
     output:
-        path("${sample_id}.marked.cram"), emit: cram, optional: true
-        path("${sample_id}.marked.cram.crai"), emit: crai, optional: true
-        path("${sample_id}.marked.bam"), emit: bam, optional: true
-        path("${sample_id}.marked.bam.bai"), emit: bai, optional: true
+        path("${sample_id}.marked.bam"), emit: bam
+        path("${sample_id}.marked.bam.bai"), emit: bai
 
     script:
     def threads = task.cpus
     def gpu_devices = task.gpu ? task.gpu : 'all'
-    if (output_format == 'bam') {
-        """
-        pbrun fq2bam \\
-            --ref ${fasta} \\
-            --in-fq ${reads} \\
-            --out-bam ${sample_id}.bam \\
-            --rg-id "${rgid}" \\
-            --rg-sm "${sample_id}" \\
-            --rg-pl "SCHEMABIO" \\
-            --rg-pu "Germline" \\
-            --threads ${threads} \\
-            --gpu-devices ${gpu_devices} \\
-            --gpusort
+    """
+    pbrun fq2bam \\
+        --ref ${fasta} \\
+        --in-fq ${reads} \\
+        --out-bam ${sample_id}.bam \\
+        --rg-id "${rgid}" \\
+        --rg-sm "${sample_id}" \\
+        --rg-pl "SCHEMABIO" \\
+        --rg-pu "Germline" \\
+        --threads ${threads} \\
+        --gpu-devices ${gpu_devices} \\
+        --gpusort
 
-        samtools index -@ ${threads} ${sample_id}.bam
-        """
-    } else {
-        """
-        pbrun fq2bam \\
-            --ref ${fasta} \\
-            --in-fq ${reads} \\
-            --out-bam ${sample_id}.cram \\
-            --rg-id "${rgid}" \\
-            --rg-sm "${sample_id}" \\
-            --rg-pl "SCHEMABIO" \\
-            --rg-pu "Germline" \\
-            --threads ${threads} \\
-            --gpu-devices ${gpu_devices} \\
-            --gpusort
-
-        samtools index -@ ${threads} ${sample_id}.cram
-        """
-    }
+    samtools index -@ ${threads} ${sample_id}.bam
+    """
 }
 
 process PB_DEEPVARIANT {
@@ -67,8 +46,8 @@ process PB_DEEPVARIANT {
     label 'parabricks'
 
     input:
-        path alignment           // BAM/CRAM 比对文件
-        path alignment_index     // 比对文件索引 (.bai/.crai)
+        path alignment           // BAM 比对文件
+        path alignment_index     // 比对文件索引 (.bai)
         path fasta               // 参考基因组 FASTA
         path fasta_fai           // 参考基因组索引 (.fai)
         path fasta_dict          // 参考基因组字典 (.dict)
@@ -86,7 +65,7 @@ process PB_DEEPVARIANT {
     def model = model_type ?: 'WES'
     def shards = num_shards ?: task.cpus
     def gpu_devices = task.gpu ? task.gpu : 'all'
-    def sample_id = alignment.baseName.replaceAll(/\.(marked|bam|cram)$/, '')
+    def sample_id = alignment.baseName.replaceAll(/\.(marked|bam)$/, '')
     """
     # 处理 BED 文件：对每个区域前后拓展 20bp
     if [ "${intervals}" != "NO_FILE" ] && [ -s "${intervals}" ]; then

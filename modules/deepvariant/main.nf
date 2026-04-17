@@ -16,8 +16,8 @@ process DEEPVARIANT {
     label 'deepvariant'
 
     input:
-        path alignment           // BAM/CRAM 比对文件
-        path alignment_index     // 比对文件索引 (.bai/.crai)
+        path alignment           // BAM 比对文件
+        path alignment_index     // 比对文件索引 (.bai)
         path fasta               // 参考基因组 FASTA
         path fasta_fai           // 参考基因组索引 (.fai)
         path fasta_dict          // 参考基因组字典 (.dict)
@@ -35,7 +35,7 @@ process DEEPVARIANT {
     script:
     def model = model_type ?: 'WES'
     def shards = num_shards ?: task.cpus
-    def sample_id = alignment.baseName.replaceAll(/\.(marked|bam|cram)$/, '')
+    def sample_id = alignment.baseName.replaceAll(/\.(marked|bam)$/, '')
     """
     # 设置参考基因组环境变量 (DeepVariant 需要)
     export REFERENCE_GENOME=${fasta}

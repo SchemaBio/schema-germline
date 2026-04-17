@@ -9,8 +9,8 @@ process BCFTOOLS_BAF_MATRIX {
     label 'base'
 
     input:
-        path alignment         // BAM/CRAM 比对文件
-        path alignment_index   // 比对文件索引 (.bai/.crai)
+        path alignment         // BAM 比对文件
+        path alignment_index   // 比对文件索引 (.bai)
         path fasta             // 参考基因组 FASTA
         path fasta_fai         // 参考基因组索引 (.fai)
         path snp_positions     // SNP 位点文件 (VCF 或 BED 格式)
@@ -22,7 +22,7 @@ process BCFTOOLS_BAF_MATRIX {
 
     script:
     def depth = max_depth ?: 200
-    def sample_id = alignment.baseName.replaceAll(/\.(marked|bam|cram)$/, '')
+    def sample_id = alignment.baseName.replaceAll(/\.(marked|bam)$/, '')
     // 判断输入文件格式
     def regions_param = snp_positions.name.endsWith('.vcf') || snp_positions.name.endsWith('.vcf.gz')
         ? "-T ${snp_positions}"

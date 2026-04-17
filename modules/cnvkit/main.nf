@@ -31,7 +31,7 @@ process CNVKIT_REFERENCE {
     label 'cnvkit'
 
     input:
-        path alignments          // 批次 BAM/CRAM 比对文件
+        path alignments          // 批次 BAM 比对文件
         path alignment_indices   // 比对文件索引
         path user_bed            // 用户提供的捕获区域 BED 文件
         path access_bed          // 可访问区域 BED (可选)
@@ -73,25 +73,17 @@ process CNVKIT_REFERENCE {
     mkdir -p coverage_files
 
     for aln in ${alignments}; do
-        sample_id=\$(basename "\${aln}" | sed 's/\\.(marked|bam|cram)$//')
-
-        if [[ "\${aln}" == *.cram ]]; then
-            ref_cmd="--fasta ${fasta}"
-        else
-            ref_cmd=""
-        fi
+        sample_id=\$(basename "\${aln}" | sed 's/\\.(marked|bam)$//')
 
         cnvkit.py coverage \\
             "\${aln}" \\
             targets.bed \\
-            \${ref_cmd} \\
             --processes ${task.cpus} \\
             --output coverage_files/\${sample_id}.targetcoverage.cnn
 
         cnvkit.py coverage \\
             "\${aln}" \\
             antitargets.bed \\
-            \${ref_cmd} \\
             --processes ${task.cpus} \\
             --output coverage_files/\${sample_id}.antitargetcoverage.cnn
     done
@@ -116,14 +108,14 @@ process CNVKIT_BATCH {
     label 'cnvkit'
 
     input:
-        path alignment          // BAM/CRAM 比对文件
+        path alignment          // BAM 比对文件
         path alignment_index    // 比对文件索引
         path user_bed           // 用户提供的捕获区域 BED 文件
         val annotate            // 是否添加基因注释 (boolean)
         val split_size          // 分割大小 (默认 5000)
         path access_bed         // 可访问区域 BED (可选，用于限制 antitarget 范围)
         val min_target_size     // 最小目标大小 (默认 10000)
-        path fasta              // 参考基因组 (CRAM 输入时需要)
+        path fasta              // 参考基因组
         path reference          // 基线文件 (reference.cnn)
         val method              // 分段方法: 'cbs' (默认), 'haar', 'flasso'
         val threshold           // 分段阈值 (默认自动)
@@ -148,8 +140,7 @@ process CNVKIT_BATCH {
     script:
     def min_size = min_target_size ?: 10000
     def access_cmd = access_bed.name != 'NO_FILE' ? "--access ${access_bed}" : ''
-    def sample_id = alignment.baseName.replaceAll(/\.(marked|bam|cram)$/, '')
-    def ref_cmd = alignment.name.endsWith('.cram') ? "--fasta ${fasta}" : ''
+    def sample_id = alignment.baseName.replaceAll(/\.(marked|bam)$/, '')
     def seg_method = method ?: 'cbs'
     def thresh_cmd = threshold ? "--threshold ${threshold}" : ''
     def male_cmd = is_male ? '--male-reference' : ''
@@ -172,14 +163,12 @@ process CNVKIT_BATCH {
     cnvkit.py coverage \\
         ${alignment} \\
         targets.bed \\
-        ${ref_cmd} \\
         --processes ${task.cpus} \\
         --output ${sample_id}.targetcoverage.cnn
 
     cnvkit.py coverage \\
         ${alignment} \\
         antitargets.bed \\
-        ${ref_cmd} \\
         --processes ${task.cpus} \\
         --output ${sample_id}.antitargetcoverage.cnn
 
