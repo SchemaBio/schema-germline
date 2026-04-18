@@ -9,15 +9,19 @@
 //   - pick: 选择每个变异最显著的注释结果
 //   - everything: 输出所有可用注释字段
 //   - fork: 多线程并行处理
-//   - custom: 自定义数据库注释 (gnomAD, AlphaMissense, CIViC, etc.)
+//   - custom: 自定义数据库注释 (gnomAD, AlphaMissense, etc.)
+//   - plugin: VEP 插件 (FlankingSequence, AnnotateClinVar, MissenseZscoreTranscript)
 //
 // 支持的自定义数据库 (通过 --custom 参数添加):
 //   - gnomAD: 人群频率数据库 (AF, AC, AN 等字段)
 //   - AlphaMissense: 变异致病性预测评分
 //   - EVOScore2: 进化保守性评分
-//   - CIViC: 临床相关变异注释
-//   - MSKCC hotspot: 癌症热点突变
 //   - Pangolin: 基因组注释
+//
+// 支持的插件 (通过 --plugin 参数添加):
+//   - FlankingSequence: 输出变异位点上下游序列
+//   - AnnotateClinVar: ClinVar 临床意义注释 (CLNSIG, CLNDN, CLNSTAR)
+//   - MissenseZscoreTranscript: 转录本级别 Missense Z-score
 
 process VEP_ANNOTATE {
     tag "VEP on ${vcf.baseName}"
@@ -41,12 +45,13 @@ process VEP_ANNOTATE {
         path alphamissense_tbi // AlphaMissense 索引文件
         path evoscore_vcf      // EVOScore2 进化保守性评分 VCF
         path evoscore_tbi      // EVOScore 索引文件
-        path civic_vcf         // CIViC 临床变异注释 VCF
-        path civic_tbi         // CIViC 索引文件
-        path mskcc_vcf         // MSKCC 癌症热点突变 VCF
-        path mskcc_tbi         // MSKCC 索引文件
         path pangolin_vcf      // Pangolin 基因组注释 VCF
         path pangolin_tbi      // Pangolin 索引文件
+        // 插件相关参数 (可选)
+        val flanking_seq_len   // FlankingSequence 插件: 上下游序列长度 (默认 10)
+        path clinvar_vcf       // AnnotateClinVar 插件: ClinVar VCF 文件
+        path clinvar_tbi       // ClinVar 索引文件
+        path missense_bed      // MissenseZscoreTranscript 插件: Missense Z-score BED 文件
 
     output:
         path "*.vep.vcf.gz", emit: vep_vcf
@@ -73,14 +78,20 @@ process VEP_ANNOTATE {
     if (evoscore_vcf) {
         custom_args += " --custom ${evoscore_vcf},EVOScore2,vcf,exact,force_overwrite"
     }
-    if (civic_vcf) {
-        custom_args += " --custom ${civic_vcf},CIViC,vcf,exact,force_overwrite"
-    }
-    if (mskcc_vcf) {
-        custom_args += " --custom ${mskcc_vcf},MSKCC_hotspot,vcf,exact,force_overwrite"
-    }
     if (pangolin_vcf) {
         custom_args += " --custom ${pangolin_vcf},Pangolin,vcf,exact,force_overwrite"
+    }
+
+    // 构建插件参数
+    def plugin_args = ''
+    if (flanking_seq_len) {
+        plugin_args += " --plugin FlankingSequence,${flanking_seq_len}"
+    }
+    if (clinvar_vcf) {
+        plugin_args += " --plugin AnnotateClinVar,clinvar_file=${clinvar_vcf},fields=CLNSIG,CLNDN,CLNSTAR"
+    }
+    if (missense_bed) {
+        plugin_args += " --plugin MissenseZscoreTranscript,${missense_bed},1"
     }
     """
     # 设置 VEP 缓存目录
@@ -98,9 +109,11 @@ process VEP_ANNOTATE {
     #   gnomad: 人群频率 (AF, AC, AN, Homo, etc.)
     #   AlphaMissense: 致病性预测评分 (am_pathogenicity, am_class)
     #   EVOScore2: 进化保守性评分
-    #   CIViC: 临床相关变异 (clinical_significance, etc.)
-    #   MSKCC_hotspot: 癌症热点突变
     #   Pangolin: 基因组注释
+    # --plugin 参数添加插件注释:
+    #   FlankingSequence: 输出变异位点上下游序列
+    #   AnnotateClinVar: ClinVar 临床意义 (CLNSIG, CLNDN, CLNSTAR)
+    #   MissenseZscoreTranscript: 转录本级别 Missense Z-score
     vep \\
         --input_file ${vcf} \\
         --output_file ${sample_id}.vep.vcf \\
@@ -118,6 +131,7 @@ process VEP_ANNOTATE {
         --no_stats \\
         --fork ${threads} \\
         ${custom_args} \\
+        ${plugin_args} \\
         ${extra}
 
     # 压缩 VCF 文件并创建索引
@@ -134,9 +148,12 @@ process VEP_ANNOTATE {
     if [ -n "${gnomad_vcf}" ]; then echo "  - gnomAD: ${gnomad_vcf}" >> ${sample_id}.vep.summary.txt; fi
     if [ -n "${alphamissense_vcf}" ]; then echo "  - AlphaMissense: ${alphamissense_vcf}" >> ${sample_id}.vep.summary.txt; fi
     if [ -n "${evoscore_vcf}" ]; then echo "  - EVOScore2: ${evoscore_vcf}" >> ${sample_id}.vep.summary.txt; fi
-    if [ -n "${civic_vcf}" ]; then echo "  - CIViC: ${civic_vcf}" >> ${sample_id}.vep.summary.txt; fi
-    if [ -n "${mskcc_vcf}" ]; then echo "  - MSKCC hotspot: ${mskcc_vcf}" >> ${sample_id}.vep.summary.txt; fi
     if [ -n "${pangolin_vcf}" ]; then echo "  - Pangolin: ${pangolin_vcf}" >> ${sample_id}.vep.summary.txt; fi
+    echo "" >> ${sample_id}.vep.summary.txt
+    echo "Plugins used:" >> ${sample_id}.vep.summary.txt
+    if [ -n "${flanking_seq_len}" ]; then echo "  - FlankingSequence: ${flanking_seq_len} bp" >> ${sample_id}.vep.summary.txt; fi
+    if [ -n "${clinvar_vcf}" ]; then echo "  - AnnotateClinVar: ${clinvar_vcf}" >> ${sample_id}.vep.summary.txt; fi
+    if [ -n "${missense_bed}" ]; then echo "  - MissenseZscoreTranscript: ${missense_bed}" >> ${sample_id}.vep.summary.txt; fi
     echo "" >> ${sample_id}.vep.summary.txt
     echo "Total variants annotated:" >> ${sample_id}.vep.summary.txt
     zcat ${sample_id}.vep.vcf.gz | grep -v "^#" | wc -l >> ${sample_id}.vep.summary.txt
