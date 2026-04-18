@@ -86,9 +86,11 @@ workflow WES_SINGLE {
     val vep_use_gnomad          // 是否使用 gnomAD 人群频率数据库 (boolean, 默认 true)
     val vep_use_alphamissense   // 是否使用 AlphaMissense 致病性预测 (boolean, 默认 true)
     val vep_use_evoscore        // 是否使用 EVOScore2 进化保守性评分 (boolean, 默认 true)
-    val vep_use_civic           // 是否使用 CIViC 临床变异注释 (boolean, 默认 true)
-    val vep_use_mskcc           // 是否使用 MSKCC 癌症热点突变 (boolean, 默认 true)
     val vep_use_pangolin        // 是否使用 Pangolin 基因组注释 (boolean, 默认 true)
+    // VEP 插件参数
+    val vep_flanking_seq_len    // FlankingSequence 插件: 上下游序列长度 bp (默认 10)
+    val vep_use_clinvar         // 是否使用 AnnotateClinVar 插件 (boolean, 默认 true)
+    val vep_use_missense_zscore // 是否使用 MissenseZscoreTranscript 插件 (boolean, 默认 true)
     // Stranger 参数
     val stranger_filter_mode    // Stranger 过滤模式: 'pathogenic', 'borderline', 'all_disease' (默认 pathogenic)
     // 输出目录参数
@@ -490,12 +492,12 @@ workflow WES_SINGLE {
     ch_alphamissense_tbi = Channel.empty()
     ch_evoscore_vcf = Channel.empty()
     ch_evoscore_tbi = Channel.empty()
-    ch_civic_vcf = Channel.empty()
-    ch_civic_tbi = Channel.empty()
-    ch_mskcc_vcf = Channel.empty()
-    ch_mskcc_tbi = Channel.empty()
     ch_pangolin_vcf = Channel.empty()
     ch_pangolin_tbi = Channel.empty()
+    // 插件文件通道
+    ch_clinvar_vcf = Channel.empty()
+    ch_clinvar_tbi = Channel.empty()
+    ch_missense_bed = Channel.empty()
 
     if (vep_db_dir) {
         def db_path = "${vep_db_dir}/${db_prefix}"
@@ -515,26 +517,26 @@ workflow WES_SINGLE {
             ch_evoscore_tbi = Channel.fromPath("${db_path}/${db_prefix}_EVOScore2.vcf.gz.tbi", checkIfExists: true)
             log.info "VEP: 使用 EVOScore2 数据库: ${db_path}/${db_prefix}_EVOScore2.vcf.gz"
         }
-        if (vep_use_civic) {
-            ch_civic_vcf = Channel.fromPath("${db_path}/${db_prefix}_civic.vcf.gz", checkIfExists: true)
-            ch_civic_tbi = Channel.fromPath("${db_path}/${db_prefix}_civic.vcf.gz.tbi", checkIfExists: true)
-            log.info "VEP: 使用 CIViC 数据库: ${db_path}/${db_prefix}_civic.vcf.gz"
-        }
-        if (vep_use_mskcc) {
-            ch_mskcc_vcf = Channel.fromPath("${db_path}/${db_prefix}_mskcc_hotspot.v2.vcf.gz", checkIfExists: true)
-            ch_mskcc_tbi = Channel.fromPath("${db_path}/${db_prefix}_mskcc_hotspot.v2.vcf.gz.tbi", checkIfExists: true)
-            log.info "VEP: 使用 MSKCC hotspot 数据库: ${db_path}/${db_prefix}_mskcc_hotspot.v2.vcf.gz"
-        }
         if (vep_use_pangolin) {
             ch_pangolin_vcf = Channel.fromPath("${db_path}/${db_prefix}_pangolin.vcf.gz", checkIfExists: true)
             ch_pangolin_tbi = Channel.fromPath("${db_path}/${db_prefix}_pangolin.vcf.gz.tbi", checkIfExists: true)
             log.info "VEP: 使用 Pangolin 数据库: ${db_path}/${db_prefix}_pangolin.vcf.gz"
         }
+        // 插件文件
+        if (vep_use_clinvar) {
+            ch_clinvar_vcf = Channel.fromPath("${vep_db_dir}/clinvar/clinvar.vcf.gz", checkIfExists: true)
+            ch_clinvar_tbi = Channel.fromPath("${vep_db_dir}/clinvar/clinvar.vcf.gz.tbi", checkIfExists: true)
+            log.info "VEP: 使用 AnnotateClinVar 插件: ${vep_db_dir}/clinvar/clinvar.vcf.gz"
+        }
+        if (vep_use_missense_zscore) {
+            ch_missense_bed = Channel.fromPath("${db_path}/missenseByTranscript.${db_prefix}.v4.1.bed", checkIfExists: true)
+            log.info "VEP: 使用 MissenseZscoreTranscript 插件: ${db_path}/missenseByTranscript.${db_prefix}.v4.1.bed"
+        }
     } else {
         log.info "VEP: 未提供自定义数据库目录 (vep_db_dir)，仅使用 VEP 内置注释"
     }
 
-    // SNV/Indel 注释 (带自定义数据库)
+    // SNV/Indel 注释 (带自定义数据库和插件)
     VEP_ANNOTATE(
         ch_vcf,
         ch_vcf_tbi,
@@ -552,12 +554,13 @@ workflow WES_SINGLE {
         ch_alphamissense_tbi,
         ch_evoscore_vcf,
         ch_evoscore_tbi,
-        ch_civic_vcf,
-        ch_civic_tbi,
-        ch_mskcc_vcf,
-        ch_mskcc_tbi,
         ch_pangolin_vcf,
-        ch_pangolin_tbi
+        ch_pangolin_tbi,
+        // 插件参数
+        vep_flanking_seq_len,
+        ch_clinvar_vcf,
+        ch_clinvar_tbi,
+        ch_missense_bed
     )
     .publishDir(vep_output_dir ?: 'NO_OUTPUT', mode: 'copy', enabled: vep_output_dir != 'NO_OUTPUT')
     ch_vep_vcf = ch_vep_vcf.mix(VEP_ANNOTATE.out.vep_vcf)
