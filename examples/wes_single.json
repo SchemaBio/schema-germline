@@ -1,0 +1,72 @@
+{
+    "sample_id": "S001",
+    "read1": "/data/S001_R1.fastq.gz",
+    "read2": "/data/S001_R2.fastq.gz",
+
+    "reference": {
+        "fasta": "/reference/hg38.fa"
+    },
+
+    "outdir": "/analysis/results/S001",
+
+    "target_bed": "/reference/wes_targets.bed",
+    "mt_bed": "/reference/mt_regions.bed",
+    "snp_positions": "/reference/snp_positions.bed",
+
+    "genome_assembly": "GRCh38",
+
+    "use_gpu": false,
+    "sex_check_threshold": 10,
+    "baf_max_depth": 200,
+
+    "deepvariant_model": "WES",
+    "deepvariant_shards": null,
+
+    "cnvkit_reference": "/reference/cnvkit_reference.cnn",
+    "cnvkit_access_bed": "/reference/cnvkit_access.bed",
+    "cnvkit_annotate": true,
+    "cnvkit_split_size": 5000,
+    "cnvkit_min_target_size": 10000,
+    "cnvkit_method": "cbs",
+    "cnvkit_threshold": null,
+    "cnvkit_ploidy": 2,
+    "cnvkit_drop_outliers": true,
+
+    "expansionhunter_catalog": "/reference/str_catalog.json",
+    "expansionhunter_min_anchor": 8,
+    "expansionhunter_max_irr": 100,
+
+    "tiea_min_support": 10,
+    "tiea_min_softclip": 36,
+    "tiea_min_mapq": 20,
+    "tiea_cluster_window": 10,
+    "tiea_threads": 4,
+
+    "whatshap_chromosomes": null,
+    "whatshap_ignore_rg": true,
+    "whatshap_ref_conf": 20,
+
+    "vep_use_pick": true,
+    "vep_use_refseq_only": false,
+    "vep_cache_dir": null,
+    "vep_extra_args": null,
+    "vep_mei_upstream_distance": 5000,
+    "vep_mei_downstream_distance": 5000,
+
+    "vep_db_dir": "/reference/vep_databases",
+    "vep_use_gnomad": true,
+    "vep_use_alphamissense": true,
+    "vep_use_evoscore": true,
+    "vep_use_pangolin": true,
+
+    "vep_flanking_seq_len": 10,
+    "vep_use_clinvar": true,
+    "vep_use_missense_zscore": true,
+
+    "stranger_filter_mode": "pathogenic",
+
+    "automap_min_roh_length": 500000,
+    "automap_max_roh_length": 100000000,
+    "automap_min_snps_in_roh": 20,
+    "automap_max_gap_length": 500000
+}
