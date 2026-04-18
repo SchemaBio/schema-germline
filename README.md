@@ -19,11 +19,8 @@ docker pull docker.schema-bio.com/schemabio/gatk:4.6.2.0
 docker pull docker.schema-bio.com/schemabio/cnvkit:v0.9.13
 docker pull docker.schema-bio.com/schemabio/expansionhunter:5.0.0
 docker pull docker.schema-bio.com/schemabio/deepvariant:1.10.0
-docker pull docker.schema-bio.com/schemabio/vep:release_115.2
+docker pull docker.schema-bio.com/schemabio/vep:115.2
 docker pull docker.schema-bio.com/schemabio/glnexus:v1.4.1
-docker pull docker.schema-bio.com/schemabio/core:v2.0.0
-docker pull docker.schema-bio.com/schemabio/statistical:v2.0.0
-docker pull docker.schema-bio.com/schemabio/base:v2.0.0
 ```
 
 ### 3. 准备配置文件
@@ -122,16 +119,36 @@ docker run --rm -it \
 
 ## 流程说明
 
-### WES_SINGLE (默认完整流程)
+### WES_SINGLE (默认完整流程 - 单人)
 
 ```
 FASTP (质控过滤) -> BWA_MEM2 (比对) -> GATK_MARKDUPLICATES (标记重复) -> BAM
-    -> DEEPVARIANT (SNV/INDEL) -> WHATSHAP (定相) -> VEP (注释) -> GENMOD (遗传模式)
+    -> DEEPVARIANT (SNV/INDEL) -> WHATSHAP (定相) -> VEP (注释)
     -> GATK_MUTECT2_MT (线粒体)
     -> EXPANSIONHUNTER (STR) -> STRANGER (STR注释)
     -> CNVKIT (CNV)
-    -> PLINK2 (基因型分析) -> BCFTOOLS_ROH (ROH检测)
-    -> SLIVAR (变异过滤)
+    -> TIEA_WES (MEI)
+    -> AUTOMAP_ROH (ROH检测) -> AUTOMAP_UPD (UPD推断)
+```
+
+### WES_TRIO (家系流程 - 父母子 Trio)
+
+```
+所有成员并行处理:
+    FASTP (质控) -> BWA_MEM2 (比对) -> DEEPVARIANT (gVCF)
+
+家系合并:
+    GLNEXUS_JOINTCALL_TRIO (合并gVCF + de novo检测) -> PEDDY (亲缘验证)
+
+合并VCF处理:
+    WHATSHAP (家系定相) -> VEP (注释)
+
+先证者专属分析:
+    CNVKIT (CNV) + EXPANSIONHUNTER/STRANGER (STR) + TIEA_WES (MEI)
+    + MUTECT2_MT (线粒体) + BAF (BAF矩阵)
+
+Trio ROH/UPD:
+    AUTOMAP_ROH (三人ROH) -> AUTOMAP_UPD (Trio精确UPD检测)
 ```
 
 ### QC_ALIGNMENT (质控+比对)
@@ -202,6 +219,7 @@ CNVKIT_TARGET + CNVKIT_ANTITARGET -> CNVKIT_REFERENCE_BUILD
 |------|------|-------------|
 | Plink2 | 基因型分析、PCA、亲缘关系 | statistical:v2.0.0 |
 | BCFTools | ROH 检测、VCF 统计 | statistical:v2.0.0 |
+| AutoMap | ROH 区域检测、近亲系数估算、UPD 推断 | automap:1.3 |
 
 #### 过滤与筛选
 
@@ -234,6 +252,7 @@ CNVKIT_TARGET + CNVKIT_ANTITARGET -> CNVKIT_REFERENCE_BUILD
 | glnexus:v1.4.1 | GLnexus |
 | core:v2.0.0 | GenMod, Slivar, WhatsHap |
 | statistical:v2.0.0 | Plink2, Vcftools |
+| automap:1.3 | AutoMap (ROH/UPD 分析) |
 | base:v2.0.0 | Python 基础环境 (辅助脚本) |
 
 ## Profiles
@@ -346,64 +365,155 @@ schema-germline/
 
 ### 输出结果目录结构
 
+参考 Illumina DRAGEN、Sentieon、GATK Best Practices 的目录结构设计：
+- 按数据类型分类，而非按步骤编号
+- QC 报告集中管理，便于查看
+- 中间结果 (raw) 和最终结果 (annotated) 分离
+- 每种变异类型独立目录
+
 ```
 results/
 └── {sample_id}/
-    ├── 01.QC/                   # 质控报告
-    │   ├── fastp.json           # fastp 质控 JSON
-    │   ├── fastp.html           # fastp 质控 HTML 报告
-    │   ├── *.metrics.txt        # GATK MarkDuplicates 指标
-    │   ├── *.coverage*.txt      # bamdst 覆盖度统计
-    │   ├── *.chromosome*.txt    # 染色体覆盖度
-    │   ├── *.region*.txt        # 区域覆盖度
-    │   └── *.sex*.txt           # 性别检查结果
-    ├── 02.Alignment/            # 比对结果
-    │   ├── *.marked.bam         # 去重后的 BAM
-    │   └── *.marked.bam.bai     # BAM 索引
-    ├── 03.Mutations/             # 变异结果
-    │   ├── snv_indel/           # SNP/INDEL
-    │   │   ├── *.vcf.gz         # DeepVariant VCF
-    │   │   ├── *.g.vcf.gz       # gVCF (可选)
-    │   │   ├── *.phase.vcf.gz   # WhatsHap 定相结果
-    │   │   ├── *.vep.vcf.gz     # VEP 注释结果
-    │   │   ├── *.genmod*.vcf.gz # GenMod 遗传模式
-    │   │   ├── *.slivar.vcf.gz  # Slivar 过滤结果
-    │   │   ├── *.compound.vcf.gz # 复合杂合
-    │   │   ├── *.joint.vcf.gz   # GLnexus 联合分型
-    │   │   ├── *.pgen           # Plink2 pgen
-    │   │   ├── *.pvar           # Plink2 pvar
-    │   │   ├── *.psam           # Plink2 psam
-    │   │   ├── *.king*          # 亲缘关系
-    │   │   ├── *.eigenvec       # PCA 结果
-    │   │   ├── *.roh*           # ROH 检测
-    │   │   └── *.vcfstats.txt   # VCF 统计
-    │   ├── mt/                  # 线粒体变异
-    │   │   ├── *.vcf.gz         # Mutect2 VCF
-    │   │   └── *.genmod*.vcf.gz # GenMod 注释
-    │   ├── str/                 # STR
-    │   │   ├── *.vcf.gz         # ExpansionHunter VCF
-    │   │   ├── *.stranger.vcf.gz # Stranger 注释
-    │   │   └── *.json           # STR profile
-    │   └── cnv/                 # CNV
-    │       ├── *.cnr            # CNVkit 拷贝数比率
-    │       ├── *.cns            # CNVkit 分段
-    │       ├── *.call.cns       # CNVkit 调用分段
-    │       ├── *.vcf.gz         # CNV VCF
-    │       └── *.svdb.vcf.gz    # SVDB 注释
-    └── 04.Annotation/              # 输出报告
-        ├── *.qc_summary.*       # QC 汇总
-        ├── *.slivar.tsv.gz      # 变异表格
-        ├── *.parquet            # Parquet 格式结果
-        └── *.duodel.tsv.gz      # 复合杂合表格
-└── cnv_baseline/                # CNV 基线 (仅 CNV_BASELINE)
-│   ├── targets.bed              # 目标区域
-│   ├── antitargets.bed          # 反目标区域
-│   └── reference.cnn            # CNV 参基线
-└── pipeline_info/               # 流程执行报告
-    ├── timeline.html            # 时间线
-    ├── report.html              # 执行报告
-    ├── trace.txt                # 追踪日志
-    └── dag.svg                  # DAG 图
+    ├── qc/                              # 质控报告 (集中管理)
+    │   ├── fastp/                       # Fastp 质控
+    │   │   ├── {sample}.json            # JSON 格式报告
+    │   │   └── {sample}.html            # HTML 可视化报告
+    │   ├── alignment/                   # 比对质控指标
+    │   │   ├── {sample}.metrics.txt     # MarkDuplicates 指标
+    │   │   └── {sample}_quality_metrics.*  # GATK CollectQCMetrics
+    │   ├── coverage/                    # 覆盖度报告
+    │   │   ├── {sample}.coverage.txt    # 常染色体覆盖度统计
+    │   │   ├── {sample}_mt.coverage.txt # 线粒体覆盖度统计
+    │   │   ├── {sample}.chromosome.txt  # 染色体覆盖度分布
+    │   │   └── {sample}.region.txt      # 区域覆盖度统计
+    │   └── sex_check/                   # 性别检测
+    │       └── {sample}.sex.json        # 性别检测结果
+    │
+    ├── alignment/                       # 比对结果
+    │   ├── {sample}.bam                 # 标记重复后的 BAM
+    │   └── {sample}.bam.bai             # BAM 索引
+    │
+    ├── variants/                        # 变异检测结果
+    │   ├── snv_indel/                   # SNV/Indel 变异
+    │   │   ├── raw/                     # 原始检测结果
+    │   │   │   ├── {sample}.vcf.gz      # DeepVariant VCF
+    │   │   │   ├── {sample}.vcf.gz.tbi  # VCF 索引
+    │   │   │   └── {sample}.g.vcf.gz    # gVCF (可选)
+    │   │   ├── phased/                  # 单倍型定相结果
+    │   │   │   ├── {sample}.phased.vcf.gz
+    │   │   │   └── {sample}.phasing.json  # 定相统计
+    │   │   └── annotated/               # VEP 注释结果 (最终)
+    │   │       ├── {sample}.vep.vcf.gz
+    │   │       ├── {sample}.vep.vcf.gz.tbi
+    │   │       └── {sample}.vep_summary.txt
+    │   │
+    │   ├── cnv/                         # CNV 检测结果
+    │   │   ├── {sample}.cnr             # CNVkit 拷贝数比率
+    │   │   ├── {sample}.cns             # CNVkit 分段结果
+    │   │   ├── {sample}.call.cns        # CNVkit 调用结果
+    │   │   └── {sample}.cnv.vcf.gz      # CNV VCF 文件
+    │   │
+    │   ├── str/                         # STR 扩展检测
+    │   │   ├── raw/                     # ExpansionHunter 原始输出
+    │   │   │   ├── {sample}.vcf.gz
+    │   │   │   └── {sample}.json        # STR profile
+    │   │   ├── annotated/               # Stranger 注释结果
+    │   │   │   ├── {sample}.stranger.vcf.gz
+    │   │   │   └── {sample}.stranger_summary.json
+    │   │   └ filtered/                 # 致病性 STR 过滤结果
+    │   │       └── {sample}.pathogenic_str.vcf.gz
+    │   │
+    │   ├── mei/                         # MEI 检测结果
+    │   │   ├── raw/                     # TIEA-WES 输出
+    │   │   │   └── {sample}.mei.vcf.gz
+    │   │   └ annotated/                 # VEP MEI 注释
+    │   │       └── {sample}.mei.vep.vcf.gz
+    │   │
+    │   └── mt/                          # 线粒体变异
+    │   │   ├── raw/                     # Mutect2 输出
+    │   │   │   ├── {sample}.mt.vcf.gz
+    │   │   │   └ {sample}.mt.stats
+    │   │   └ annotated/                 # VEP MT 注释
+    │   │       └── {sample}.mt.vep.vcf.gz
+    │
+    ├── baf/                             # BAF 矩阵 (辅助分析)
+    │   ├── {sample}.baf.tsv             # BAF 矩阵 TSV
+    │   └── {sample}.baf.json            # BAF 矩阵 JSON
+    │
+    ├── homozygosity/                    # ROH/UPD 分析结果
+    │   ├── {sample}.roh.bed             # ROH 区域 BED
+    │   ├── {sample}.roh.csv             # ROH 区域列表
+    │   ├── {sample}.roh.json            # ROH 检测摘要
+    │   ├── {sample}.roh.chromosome.txt  # 染色体分布报告
+    │   ├── {sample}.inbreeding.json     # 近亲系数估算
+    │   ├── {sample}.upd.bed             # UPD 区域 (推断)
+    │   ├── {sample}.upd.json            # UPD 结果 JSON
+    │   └── {sample}.upd_report.txt      # UPD 检测报告
+    │
+    └── pipeline_info/                   # Nextflow 流程信息
+        ├── timeline.html                # 执行时间线
+        ├── report.html                  # 执行报告
+        ├── trace.txt                    # 追踪日志
+        └── dag.svg                      # DAG 图
+```
+
+### CNV 基线目录结构 (CNV_BASELINE 流程)
+
+```
+results/
+└── cnv_baseline/
+    ├── targets.bed                      # 目标区域 BED
+    ├── antitargets.bed                  # 反目标区域 BED
+    └── reference.cnn                    # CNV 参考基线
+```
+
+### 家系 Trio 目录结构 (WES_TRIO 流程)
+
+```
+results/
+└── {family_id}/
+    ├── qc/                              # 所有成员质控报告
+    │   ├── fastp/                       # Fastp 质控 (所有成员)
+    │   ├── alignment/                   # 比对质控指标
+    │   ├── coverage/                    # 覆盖度报告
+    │   ├── sex_check/                   # 性别检测
+    │   └── peddy/                       # 亲缘关系验证结果
+    │
+    ├── alignment/                       # 所有成员比对结果
+    │   ├── {proband}.bam
+    │   ├── {father}.bam
+    │   ├── {mother}.bam
+    │   └── *.bam.bai
+    │
+    ├── variants/                        # 家系变异检测结果
+    │   ├── snv_indel/
+    │   │   ├── raw/                     # 各成员 gVCF
+    │   │   ├── joint/                   # GLnexus 合并 VCF + de novo VCF
+    │   │   ├── phased/                  # WhatsHap 家系定相结果
+    │   │   └── annotated/               # VEP 注释结果
+    │   └── de_novo/                     # de novo 变异检测结果
+    │
+    ├── proband/                         # 先证者专属分析
+    │   ├── cnv/                         # CNV 检测结果
+    │   ├── str/                         # STR 检测结果
+    │   │   ├── raw/
+    │   │   ├── annotated/
+    │   │   └ filtered/
+    │   ├── mei/                         # MEI 检测结果
+    │   │   ├── raw/
+    │   │   └ annotated/
+    │   ├── mt/                          # 线粒体变异
+    │   │   ├── raw/
+    │   │   └ annotated/
+    │   └── baf/                         # BAF 矩阵
+    │
+    ├── homozygosity/                    # Trio ROH/UPD 分析
+    │   ├── {proband}.roh.bed            # 先证者 ROH
+    │   ├── {proband}.upd.bed            # 先证者 UPD (精确 Trio 检测)
+    │   ├── {proband}.upd_report.txt     # UPD 报告
+    │   └── *.inbreeding.json            # 近亲系数
+    │
+    └── pipeline_info/                   # Nextflow 流程信息
 ```
 
 ## License

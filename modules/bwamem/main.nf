@@ -1,54 +1,96 @@
 // BWA MEM 比对模块
-// 用途：将测序reads比对到参考基因组
+// 用途：将测序 reads 比对到参考基因组
 // 用法：
-//   - 输入：样本ID、FASTQ文件、参考基因组、Read Group ID
-//   - 输出：BAM文件及索引
+//   - 输入：样本元信息、FASTQ 文件、参考基因组、BWA 索引文件集合
+//   - 输出：BAM 文件
 //   - 支持 BWA-MEM 和 BWA-MEM2 两种算法
+//
+// 输入格式：
+//   - meta: [id: sample_id, read_group: "@RG\\tID:...\\tSM:..."]
+//   - reads: [read1.fastq.gz, read2.fastq.gz]
+//   - bwa_indices: *.amb, *.ann, *.bwt, *.pac, *.sa 文件集合
 
 process BWAMEM {
-    tag "BWAMEM on $sample_id"
+    tag "BWAMEM on ${meta.id}"
     label 'process_high'
     label 'mapping'
 
     input:
-        tuple val(sample_id), path(reads)
+        tuple val(meta), path(reads)  // [meta, [read1, read2]]
         path fasta
-        path fasta_index
-        val rgid
+        path bwa_indices              // BWA 索引文件集合 (*.amb, *.ann, *.bwt, *.pac, *.sa)
 
     output:
-        path("${sample_id}.bam"), emit: bam
-        path("${sample_id}.bam.bai"), emit: bai
+        tuple val(meta), path("${meta.id}.bam"), emit: bam
 
     script:
+    def sample_id = meta.id
+    def rg = meta.read_group ?: "@RG\\tID:${sample_id}\\tSM:${sample_id}\\tPL:ILLUMINA"
     def threads = task.cpus
     """
-    bwa mem -t ${threads} -M -R "@RG\\tID:${rgid}\\tSM:${sample_id}\\tPL:SCHEMABIO\\tPU:Somatic" $fasta $reads \\
+    bwa mem \\
+        -t ${threads} \\
+        -M \\
+        -R "${rg}" \\
+        ${fasta} \\
+        ${reads[0]} ${reads[1]} \\
         | samtools sort -@ ${threads} -O bam -o ${sample_id}.bam -
-    samtools index -@ ${threads} ${sample_id}.bam
     """
 }
 
 process BWAMEM2 {
-    tag "BWAMEM2 on $sample_id"
+    tag "BWAMEM2 on ${meta.id}"
     label 'process_high'
     label 'mapping'
 
     input:
-        tuple val(sample_id), path(reads)
+        tuple val(meta), path(reads)  // [meta, [read1, read2]]
         path fasta
-        path fasta_index
-        val rgid
+        path bwamem2_indices          // BWA-MEM2 索引文件集合 (*.0123, *.bwt.2bit.64)
 
     output:
-        path("${sample_id}.bam"), emit: bam
-        path("${sample_id}.bam.bai"), emit: bai
+        tuple val(meta), path("${meta.id}.bam"), emit: bam
 
     script:
+    def sample_id = meta.id
+    def rg = meta.read_group ?: "@RG\\tID:${sample_id}\\tSM:${sample_id}\\tPL:ILLUMINA"
     def threads = task.cpus
     """
-    bwa-mem2 mem -t ${threads} -M -R "@RG\\tID:${rgid}\\tSM:${sample_id}\\tPL:SCHEMABIO\\tPU:Germline" $fasta $reads \\
+    bwa-mem2 mem \\
+        -t ${threads} \\
+        -M \\
+        -R "${rg}" \\
+        ${fasta} \\
+        ${reads[0]} ${reads[1]} \\
         | samtools sort -@ ${threads} -O bam -o ${sample_id}.bam -
-    samtools index -@ ${threads} ${sample_id}.bam
+    """
+}
+
+// 单端测序支持
+process BWAMEM_SINGLE {
+    tag "BWAMEM_SINGLE on ${meta.id}"
+    label 'process_medium'
+    label 'mapping'
+
+    input:
+        tuple val(meta), path(read)   // 单端 FASTQ
+        path fasta
+        path bwa_indices              // BWA 索引文件集合
+
+    output:
+        tuple val(meta), path("${meta.id}.bam"), emit: bam
+
+    script:
+    def sample_id = meta.id
+    def rg = meta.read_group ?: "@RG\\tID:${sample_id}\\tSM:${sample_id}\\tPL:ILLUMINA"
+    def threads = task.cpus
+    """
+    bwa mem \\
+        -t ${threads} \\
+        -M \\
+        -R "${rg}" \\
+        ${fasta} \\
+        ${read} \\
+        | samtools sort -@ ${threads} -O bam -o ${sample_id}.bam -
     """
 }

@@ -1,0 +1,34 @@
+{
+    "family_id": "F001",
+    "samples": [
+        {
+            "sample_id": "F001_P",
+            "role": "proband",
+            "read1": "/data/F001_P_R1.fastq.gz",
+            "read2": "/data/F001_P_R2.fastq.gz"
+        },
+        {
+            "sample_id": "F001_F",
+            "role": "father",
+            "read1": "/data/F001_F_R1.fastq.gz",
+            "read2": "/data/F001_F_R2.fastq.gz"
+        },
+        {
+            "sample_id": "F001_M",
+            "role": "mother",
+            "read1": "/data/F001_M_R1.fastq.gz",
+            "read2": "/data/F001_M_R2.fastq.gz"
+        }
+    ],
+    "reference": {
+        "fasta": "/reference/hg38.fa"
+    },
+    "target_bed": "/reference/wes_targets.bed",
+    "mt_bed": "/reference/mt_regions.bed",
+    "snp_positions": "/reference/snp_positions.bed",
+    "genome_assembly": "GRCh38",
+    "outdir": "/analysis/results",
+    "cnvkit_reference": "/reference/cnvkit_reference.cnn",
+    "expansionhunter_catalog": "/reference/str_catalog.json",
+    "vep_db_dir": "/reference/vep_databases"
+}

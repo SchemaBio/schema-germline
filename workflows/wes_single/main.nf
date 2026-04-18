@@ -25,6 +25,7 @@ include { TIEA_WES } from '../../modules/tiea-wes/main'
 include { WHATSHAP_PHASE } from '../../modules/whatshap/main'
 include { VEP_ANNOTATE; VEP_MT; VEP_MEI } from '../../modules/vep/main'
 include { STRANGER_ANNOTATE; STRANGER_FILTER } from '../../modules/stranger/main'
+include { AUTOMAP_ROH; AUTOMAP_UPD } from '../../modules/automap/main'
 
 // ============================================================================
 // Workflow Definition
@@ -93,6 +94,12 @@ workflow WES_SINGLE {
     val vep_use_missense_zscore // 是否使用 MissenseZscoreTranscript 插件 (boolean, 默认 true)
     // Stranger 参数
     val stranger_filter_mode    // Stranger 过滤模式: 'pathogenic', 'borderline', 'all_disease' (默认 pathogenic)
+    // AutoMap ROH/UPD 参数
+    val automap_min_roh_length     // ROH 最小长度 bp (默认 500000 = 500kb, WES建议降低阈值)
+    val automap_max_roh_length     // ROH 最大长度 bp (可选，默认 100Mb)
+    val automap_min_snps_in_roh    // ROH 区域内最小 SNP 数 (默认 20, WES建议降低阈值)
+    val automap_max_gap_length     // ROH 内最大允许间隔 bp (默认 500000)
+    val automap_upd_infer_mode     // UPD 推断模式: 无父母数据时使用 ROH 推断 (boolean, 默认 true)
     // 输出目录参数
     val fastp_output_dir           // FASTP 输出目录
     val collectqc_output_dir       // COLLECTQCMETRICS (GATK) 输出目录
@@ -111,6 +118,7 @@ workflow WES_SINGLE {
     val vep_mt_output_dir          // VEP_MT 输出目录
     val vep_mei_output_dir         // VEP_MEI 输出目录
     val tiea_output_dir            // TIEA_WES 输出目录
+    val automap_output_dir          // AUTOMAP ROH/UPD 输出目录
 
     main:
     // 预定义输出通道
@@ -597,6 +605,53 @@ workflow WES_SINGLE {
     ch_vep_mei_vcf_tbi = ch_vep_mei_vcf_tbi.mix(VEP_MEI.out.vep_vcf_tbi)
 
     // =========================================================================
+    // Step 15: ROH 检测 (AutoMap)
+    // =========================================================================
+    // ROH (Runs of Homozygosity) 分析用于检测基因组中的连续纯合区域
+    // 对常染色体隐性遗传病诊断具有重要意义，可估算近亲婚配系数
+    // 单人 WES 模式：使用 VEP 注释后的 VCF + 捕获区域 BED 进行 ROH 检测
+
+    AUTOMAP_ROH(
+        VEP_ANNOTATE.out.vep_vcf,
+        VEP_ANNOTATE.out.vep_vcf_tbi,
+        ch_fasta,
+        ch_fasta_fai,
+        ch_target_bed,           // 仅分析捕获区域内的 ROH
+        genome_assembly,
+        automap_min_roh_length,
+        automap_max_roh_length,
+        automap_min_snps_in_roh,
+        automap_max_gap_length,
+        ch_sample_id,
+        automap_output_dir
+    )
+    .publishDir(automap_output_dir ?: 'NO_OUTPUT', mode: 'copy', enabled: automap_output_dir != 'NO_OUTPUT')
+
+    // =========================================================================
+    // Step 16: UPD 推断 (AutoMap)
+    // =========================================================================
+    // 单亲二倍体 (UPD) 检测
+    // 单人模式下：无父母数据，仅基于 ROH 推断可能的 UPD 区域
+    // ROH 长染色体 (> 10 Mb) 可能指示 UPD (特别是 Isodisomy)
+
+    AUTOMAP_UPD(
+        VEP_ANNOTATE.out.vep_vcf,
+        VEP_ANNOTATE.out.vep_vcf_tbi,
+        ch_fasta,
+        ch_fasta_fai,
+        genome_assembly,
+        ch_sample_id,
+        '',                      // father_id (单人模式无父母数据)
+        '',                      // mother_id (单人模式无父母数据)
+        Channel.empty(),         // father_vcf (单人模式无父母数据)
+        Channel.empty(),         // father_vcf_tbi
+        Channel.empty(),         // mother_vcf
+        Channel.empty(),         // mother_vcf_tbi
+        automap_output_dir
+    )
+    .publishDir(automap_output_dir ?: 'NO_OUTPUT', mode: 'copy', enabled: automap_output_dir != 'NO_OUTPUT')
+
+    // =========================================================================
     // Emit Results
     // =========================================================================
     emit:
@@ -640,4 +695,13 @@ workflow WES_SINGLE {
     vep_mei_vcf             = ch_vep_mei_vcf                     // VEP 注释后的 MEI VCF
     vep_mei_vcf_tbi         = ch_vep_mei_vcf_tbi                 // VEP MEI VCF 索引
     vep_mei_summary         = VEP_MEI.out.summary                // VEP MEI 注释摘要
+    // AutoMap ROH/UPD 结果
+    roh_bed                 = AUTOMAP_ROH.out.roh_bed            // ROH 区域 BED 文件
+    roh_csv                 = AUTOMAP_ROH.out.roh_csv            // ROH 区域 CSV 文件
+    roh_summary_json        = AUTOMAP_ROH.out.summary_json       // ROH 检测摘要 JSON
+    roh_chrom_report        = AUTOMAP_ROH.out.chrom_report       // ROH 染色体分布报告
+    inbreeding_json         = AUTOMAP_ROH.out.inbreeding_json    // 近亲系数 JSON
+    upd_bed                 = AUTOMAP_UPD.out.upd_bed            // UPD 区域 BED 文件
+    upd_json                = AUTOMAP_UPD.out.upd_json           // UPD 检测结果 JSON
+    upd_report              = AUTOMAP_UPD.out.upd_report         // UPD 检测报告文本
 }
