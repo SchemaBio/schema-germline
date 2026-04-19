@@ -6,7 +6,7 @@
 process BCFTOOLS_BAF_MATRIX {
     tag "BCFTOOLS_BAF_MATRIX on ${alignment.baseName}"
     label 'process_low'
-    label 'base'
+    label 'automap'
 
     input:
         path alignment         // BAM 比对文件
