@@ -4,10 +4,10 @@
     "read2": "/data/S001_R2.fastq.gz",
 
     "reference": {
-        "fasta": "/reference/hg38.fa"
+        "fasta": "/mnt/data/database/hg19/Homo_sapiens.GRCh37.dna.primary_assembly.fa"
     },
 
-    "outdir": "/analysis/results/S001",
+    "outdir": "/mnt/data/output",
 
     "target_bed": "/reference/wes_targets.bed",
     "mt_bed": "/reference/mt_regions.bed",
@@ -53,7 +53,7 @@
     "vep_mei_upstream_distance": 5000,
     "vep_mei_downstream_distance": 5000,
 
-    "vep_db_dir": "/reference/vep_databases",
+    "vep_db_dir": "/mnt/data/database/hg19/schema_bundle",
     "vep_use_gnomad": true,
     "vep_use_alphamissense": true,
     "vep_use_evoscore": true,

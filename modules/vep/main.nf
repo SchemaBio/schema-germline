@@ -61,8 +61,6 @@ process VEP_ANNOTATE {
     script:
     def assembly = genome_assembly ?: 'GRCh38'
     def pick = use_pick ? '--pick' : ''
-    def refseq = use_refseq_only ? '--refseq' : ''
-    def cache = cache_dir ? "--cache --dir_cache ${cache_dir}" : '--cache'
     def extra = extra_args ?: ''
     def sample_id = vcf.baseName.replaceAll(/\.(vcf|vcf\.gz)$/, '')
     def threads = Math.min(task.cpus as int, 8)  // VEP fork 最多 8 线程较稳定
@@ -120,18 +118,17 @@ process VEP_ANNOTATE {
         --format vcf \\
         --vcf \\
         --assembly ${assembly} \\
-        ${cache} \\
-        --offline \\
+        --cache --dir_cache ${cache_dir} \\
+        --offline --merged \\
         --dir_cache \${VEP_CACHE} \\
         --fasta ${fasta} \\
         ${pick} \\
-        ${refseq} \\
-        --everything \\
-        --force_overwrite \\
-        --no_stats \\
+        --shift_3prime 1 --assembly ${assembly} \\
+        --no_escape --check_existing -exclude_predicted --uploaded_allele --show_ref_allele --numbers --domains \\
         --fork ${threads} \\
         ${custom_args} \\
         ${plugin_args} \\
+        --force_overwrite \\
         ${extra}
 
     # 压缩 VCF 文件并创建索引

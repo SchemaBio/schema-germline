@@ -22,7 +22,6 @@ process DEEPVARIANT {
         path fasta_fai           // 参考基因组索引 (.fai)
         path fasta_dict          // 参考基因组字典 (.dict)
         path intervals           // 目标区域 BED 文件 (可选，WES 推荐提供)
-        val model_type           // 模型类型: WGS/WES/PACBIO/ONT_R104 (默认 WES)
         val num_shards           // 并行分片数 (默认使用 task.cpus)
 
     output:
@@ -33,7 +32,6 @@ process DEEPVARIANT {
         path "*.visual_report.html", emit: report, optional: true
 
     script:
-    def model = model_type ?: 'WES'
     def shards = num_shards ?: task.cpus
     def sample_id = alignment.baseName.replaceAll(/\.(marked|bam)$/, '')
     """
@@ -60,15 +58,14 @@ process DEEPVARIANT {
     # 运行 DeepVariant (CPU 模式)
     # --model_type: 选择预训练模型
     # --num_shards: 并行处理分片数，加速处理
-    run_deepvariant \\
-        --model_type ${model} \\
+    /opt/deepvariant/bin/run_deepvariant \\
+        --model_type WES \\
         --ref ${fasta} \\
         --reads ${alignment} \\
         --output_vcf ${sample_id}.vcf.gz \\
         --output_gvcf ${sample_id}.g.vcf.gz \\
         \${REGIONS_PARAM} \\
-        --num_shards ${shards} \\
-        --logging_level INFO
+        --num_shards ${shards}
 
     # 创建索引 (DeepVariant 会自动创建，但确保存在)
     if [ ! -f ${sample_id}.vcf.gz.tbi ]; then
