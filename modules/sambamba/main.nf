@@ -7,6 +7,9 @@
 //   - 更快的处理速度 (多线程优化)
 //   - 更低的内存占用
 //   - 自动创建索引
+//
+// 参数说明：
+//   - tmpdir: 临时文件存储目录，处理大文件时可能产生大量临时数据
 
 process SAMBAMBA_MARKDUP {
     tag "SAMBAMBA_MARKDUP on ${alignment.baseName}"
@@ -16,6 +19,7 @@ process SAMBAMBA_MARKDUP {
     input:
         path alignment          // BAM 文件
         path alignment_index    // BAM 索引文件 (.bai)
+        val tmpdir              // 临时文件目录 (默认当前目录)
 
     output:
         path "*.marked.bam", emit: alignment
@@ -25,13 +29,11 @@ process SAMBAMBA_MARKDUP {
     script:
     def threads = Math.min(task.cpus as int, 8)
     def sample_id = alignment.baseName.replaceAll(/\.bam$/, '')
-    def remove_dup = params.sambamba_remove_duplicates ?: false
-    def remove_flag = remove_dup ? '--remove-duplicates' : ''
+    def tmp_dir = tmpdir ?: '.'
     """
     sambamba markdup \\
         -t ${threads} \\
-        ${remove_flag} \\
-        --tmpdir=. \\
+        --tmpdir=${tmp_dir} \\
         --overflow-list-size=500000 \\
         --hash-table-size=500000 \\
         ${alignment} ${sample_id}.marked.bam
