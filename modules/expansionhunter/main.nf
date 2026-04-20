@@ -5,9 +5,9 @@
 //
 // 说明：
 //   - 专门用于检测三核苷酸重复扩展疾病 (如亨廷顿病、脆性X综合征等)
-//   - 需要提供 STR 位点定义文件 (variant catalog, JSON 格式)
+//   - 根据基因组版本自动选择内置的 STR 位点定义文件 (variant catalog)
 //   - 支持性别特异性分析 (影响 X/Y 染色体 STR 的检测)
-//   - variant catalog 可从 ExpansionHunter 官方获取，或自定义
+//   - 内置 variant catalog 位于镜像 /opt/expansionhunter/variant_catalog/${genome_version}/
 
 // ============================================================================
 // EXPANSIONHUNTER - STR 扩展检测
@@ -22,7 +22,7 @@ process EXPANSIONHUNTER {
         path alignment_index     // 比对文件索引
         path fasta               // 参考基因组 FASTA
         path fasta_fai           // 参考基因组索引 (.fai)
-        path variant_catalog     // STR 位点定义文件 (JSON 格式)
+        val genome_version       // 基因组版本 (hg19, hg38, grch37, grch38)
         val sex                  // 样本性别: 'male', 'female', 或 'unknown' (默认 unknown)
         val min_anchor           // 最小锚定长度 (默认 8)
         val max_irr_mapping      // 最大不完美匹配距离 (默认 100)
@@ -42,12 +42,13 @@ process EXPANSIONHUNTER {
     def sex_param = sex ? "--sex ${sex}" : ''
     def anchor = min_anchor ?: 8
     def irr = max_irr_mapping ?: 100
+    def catalog_path = "/opt/expansionhunter/variant_catalog/${genome_version}/variant_catalog.json"
     """
     # 运行 ExpansionHunter
     expansionhunter \\
         --reads ${alignment} \\
         --reference ${fasta} \\
-        --variant-catalog ${variant_catalog} \\
+        --variant-catalog ${catalog_path} \\
         --output-prefix ${sample_id} \\
         --min-anchor ${anchor} \\
         --max-irr-mapping ${irr} \\
