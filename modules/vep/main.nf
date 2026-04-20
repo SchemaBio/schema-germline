@@ -42,6 +42,7 @@ process VEP_ANNOTATE {
     // 设置 VEP 缓存目录
     def vep_cache = cache_dir ? cache_dir : '/opt/vep/.vep'
     def schema_bundle = '/schema_bundle'
+    def clinvar_version = '20260415' // ClinVar 数据版本，需与 schema_bundle 中文件一致
     """
     cache_str="Uploaded_variation,Location,REF_ALLELE,Allele,Consequence,IMPACT,DOMAINS,Feature,DISTANCE,EXON,INTRON,SYMBOL,STRAND,HGNC_ID,HGVSc,HGVSp,HGVSg,MAX_AF,Protein_position,Amino_acids,Codons,PUBMED,Existing_variation"
     custom_str="cytoBand,CLNSIG,CLNDN,CLNSTAR,"
@@ -59,7 +60,7 @@ process VEP_ANNOTATE {
         --shift_3prime 1 --assembly ${assembly} --no_escape --check_existing -exclude_predicted --uploaded_allele --show_ref_allele --numbers --domains \
         --total_length --hgvs --hgvsg --symbol --ccds --uniprot --max_af --pubmed \
         --transcript_filter "stable_id match N[MR]_" \
-        --plugin AnnotateClinVar,clinvar_file=${schema_bundle}/${db_prefix}_clinvar.vcf.gz,fields=CLNSIG,CLNDN,CLNSTAR \
+        --plugin AnnotateClinVar,clinvar_file=${schema_bundle}/${db_prefix}_clinvar_${clinvar_version}.vcf.gz,fields=CLNSIG,CLNDN,CLNSTAR \
         --custom file=${schema_bundle}/${db_prefix}_cytoBand.bed.gz,short_name=cytoBand,format=bed,type=overlap,coords=0 \
         --custom file=${schema_bundle}/${db_prefix}_gnomad.v4.1.filtered.vcf.gz,short_name=GnomAD,format=vcf,type=exact,coords=0,fields=Exomes_AC_XY%Genomes_AC_XY%Gnomad_AC_XY \
         --custom file=${schema_bundle}/${db_prefix}_pangolin.vcf.gz,short_name=Pangolin,format=vcf,type=exact,coords=0,fields=Exomes_AC_XY%Genomes_AC_XY%Gnomad_AC_XY \

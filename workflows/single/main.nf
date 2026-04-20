@@ -23,7 +23,7 @@ include { CNVKIT_BATCH } from '../../modules/cnvkit/main'
 include { EXPANSIONHUNTER } from '../../modules/expansionhunter/main'
 include { TIEA_WES } from '../../modules/tiea-wes/main'
 include { WHATSHAP_PHASE } from '../../modules/whatshap/main'
-include { VEP_ANNOTATE; VEP_MT; VEP_MEI } from '../../modules/vep/main'
+include { VEP_ANNOTATE } from '../../modules/vep/main'
 include { STRANGER_ANNOTATE; STRANGER_FILTER } from '../../modules/stranger/main'
 include { AUTOMAP_ROH; AUTOMAP_UPD } from '../../modules/automap/main'
 
@@ -46,7 +46,6 @@ workflow WES_SINGLE {
     val genome_assembly      // 基因组版本: 'GRCh37' 或 'GRCh38'
     val sex_check_threshold  // 性别检测 SRY reads 阈值 (integer)
     val baf_max_depth        // BAF 计算最大深度 (integer, 默认 200)
-    val deepvariant_model    // DeepVariant 模型类型: WES/WGS/PACBIO/ONT_R104 (默认 WES)
     val deepvariant_shards   // DeepVariant 并行分片数 (integer, 默认使用 task.cpus)
     // CNVkit 参数
     ch_cnvkit_reference      // CNVkit 基线文件 (reference.cnn)
@@ -76,22 +75,8 @@ workflow WES_SINGLE {
     val whatshap_ref_conf       // WhatsHap 参考置信度阈值 (integer, 默认 20)
     val whatshap_output_dir     // WhatsHap 输出目录
     // VEP 参数
-    val vep_use_pick            // VEP 是否选择最显著注释 (boolean, 默认 true)
-    val vep_use_refseq_only     // VEP 是否仅使用 RefSeq 转录本 (boolean, 默认 false)
     val vep_cache_dir           // VEP 缓存目录 (可选，默认使用容器内置缓存)
-    val vep_extra_args          // VEP 额外参数 (可选)
-    val vep_mei_upstream_distance // VEP MEI 注释上游基因距离阈值 bp (默认 5000)
-    val vep_mei_downstream_distance // VEP MEI 注释下游基因距离阈值 bp (默认 5000)
-    // VEP 自定义数据库参数
-    val vep_db_dir              // VEP 自定义数据库根目录 (SchemaBio_Bundle)
-    val vep_use_gnomad          // 是否使用 gnomAD 人群频率数据库 (boolean, 默认 true)
-    val vep_use_alphamissense   // 是否使用 AlphaMissense 致病性预测 (boolean, 默认 true)
-    val vep_use_evoscore        // 是否使用 EVOScore2 进化保守性评分 (boolean, 默认 true)
-    val vep_use_pangolin        // 是否使用 Pangolin 基因组注释 (boolean, 默认 true)
-    // VEP 插件参数
-    val vep_flanking_seq_len    // FlankingSequence 插件: 上下游序列长度 bp (默认 10)
-    val vep_use_clinvar         // 是否使用 AnnotateClinVar 插件 (boolean, 默认 true)
-    val vep_use_missense_zscore // 是否使用 MissenseZscoreTranscript 插件 (boolean, 默认 true)
+    val vep_tag                 // VEP 输出文件标签 (默认 'annotated')
     // Stranger 参数
     val stranger_filter_mode    // Stranger 过滤模式: 'pathogenic', 'borderline', 'all_disease' (默认 pathogenic)
     // AutoMap ROH/UPD 参数
@@ -135,11 +120,8 @@ workflow WES_SINGLE {
     ch_mei = Channel.empty()
     ch_phasing = Channel.empty()
     ch_vep_vcf = Channel.empty()
-    ch_vep_vcf_tbi = Channel.empty()
     ch_vep_mt_vcf = Channel.empty()
-    ch_vep_mt_vcf_tbi = Channel.empty()
     ch_vep_mei_vcf = Channel.empty()
-    ch_vep_mei_vcf_tbi = Channel.empty()
 
     // =========================================================================
     // Step 1: FASTQ 质控过滤
@@ -277,7 +259,7 @@ workflow WES_SINGLE {
     // =========================================================================
     // 判断变异检测策略：
     //   - 有 GPU → PB_DEEPVARIANT (Parabricks GPU 加速)
-    //   - 无 GPU → DEEPVARIANT (CPU 模式)
+    //   - 无 GPU → DEEPVARIANT (CPU 模式，固定 WES 模型)
 
     if (use_gpu) {
         // GPU 模式：使用 Parabricks DeepVariant
@@ -289,7 +271,6 @@ workflow WES_SINGLE {
             ch_fasta_fai,
             ch_fasta_dict,
             ch_target_bed,
-            deepvariant_model,
             deepvariant_shards
         )
         .publishDir(pb_deepvariant_output_dir ?: 'NO_OUTPUT', mode: 'copy', enabled: pb_deepvariant_output_dir != 'NO_OUTPUT')
@@ -298,8 +279,8 @@ workflow WES_SINGLE {
         ch_gvcf = ch_gvcf.mix(PB_DEEPVARIANT.out.gvcf)
         ch_gvcf_tbi = ch_gvcf_tbi.mix(PB_DEEPVARIANT.out.gvcf_tbi)
     } else {
-        // CPU 模式：使用标准 DeepVariant
-        log.info "变异检测: DeepVariant (CPU 模式)"
+        // CPU 模式：使用标准 DeepVariant (WES 模型)
+        log.info "变异检测: DeepVariant (CPU 模式, WES)"
         DEEPVARIANT(
             ch_alignment,
             ch_alignment_index,
@@ -307,7 +288,6 @@ workflow WES_SINGLE {
             ch_fasta_fai,
             ch_fasta_dict,
             ch_target_bed,
-            deepvariant_model,
             deepvariant_shards
         )
         .publishDir(deepvariant_output_dir ?: 'NO_OUTPUT', mode: 'copy', enabled: deepvariant_output_dir != 'NO_OUTPUT')
@@ -489,120 +469,52 @@ workflow WES_SINGLE {
     // =========================================================================
     // Step 14: 变异注释 (VEP)
     // =========================================================================
-    // 构建自定义数据库文件通道
-    // 根据 genome_assembly 选择 hg19 或 hg38 目录下的数据库文件
-    def db_prefix = genome_assembly == 'GRCh37' ? 'hg19' : 'hg38'
+    // VEP 数据库路径由 docker.config 通过 mount 映射到容器内 /schema_bundle
+    // 所有类型变异 (SNV/Indel/MT/MEI) 使用统一的 VEP_ANNOTATE 模块
 
-    // 创建数据库文件通道 (如果提供了 db_dir 且启用了相应数据库)
-    ch_gnomad_vcf = Channel.empty()
-    ch_gnomad_tbi = Channel.empty()
-    ch_alphamissense_vcf = Channel.empty()
-    ch_alphamissense_tbi = Channel.empty()
-    ch_evoscore_vcf = Channel.empty()
-    ch_evoscore_tbi = Channel.empty()
-    ch_pangolin_vcf = Channel.empty()
-    ch_pangolin_tbi = Channel.empty()
-    // 插件文件通道
-    ch_clinvar_vcf = Channel.empty()
-    ch_clinvar_tbi = Channel.empty()
-    ch_missense_bed = Channel.empty()
+    def vep_out_tag = vep_tag ?: 'annotated'
 
-    if (vep_db_dir) {
-        def db_path = "${vep_db_dir}/${db_prefix}"
-
-        if (vep_use_gnomad) {
-            ch_gnomad_vcf = Channel.fromPath("${db_path}/${db_prefix}_gnomad.v4.1.filtered.vcf.gz", checkIfExists: true)
-            ch_gnomad_tbi = Channel.fromPath("${db_path}/${db_prefix}_gnomad.v4.1.filtered.vcf.gz.tbi", checkIfExists: true)
-            log.info "VEP: 使用 gnomAD 数据库: ${db_path}/${db_prefix}_gnomad.v4.1.filtered.vcf.gz"
-        }
-        if (vep_use_alphamissense) {
-            ch_alphamissense_vcf = Channel.fromPath("${db_path}/${db_prefix}_AlphaMissense.v3.vcf.gz", checkIfExists: true)
-            ch_alphamissense_tbi = Channel.fromPath("${db_path}/${db_prefix}_AlphaMissense.v3.vcf.gz.tbi", checkIfExists: true)
-            log.info "VEP: 使用 AlphaMissense 数据库: ${db_path}/${db_prefix}_AlphaMissense.v3.vcf.gz"
-        }
-        if (vep_use_evoscore) {
-            ch_evoscore_vcf = Channel.fromPath("${db_path}/${db_prefix}_EVOScore2.vcf.gz", checkIfExists: true)
-            ch_evoscore_tbi = Channel.fromPath("${db_path}/${db_prefix}_EVOScore2.vcf.gz.tbi", checkIfExists: true)
-            log.info "VEP: 使用 EVOScore2 数据库: ${db_path}/${db_prefix}_EVOScore2.vcf.gz"
-        }
-        if (vep_use_pangolin) {
-            ch_pangolin_vcf = Channel.fromPath("${db_path}/${db_prefix}_pangolin.vcf.gz", checkIfExists: true)
-            ch_pangolin_tbi = Channel.fromPath("${db_path}/${db_prefix}_pangolin.vcf.gz.tbi", checkIfExists: true)
-            log.info "VEP: 使用 Pangolin 数据库: ${db_path}/${db_prefix}_pangolin.vcf.gz"
-        }
-        // 插件文件
-        if (vep_use_clinvar) {
-            ch_clinvar_vcf = Channel.fromPath("${vep_db_dir}/clinvar/clinvar.vcf.gz", checkIfExists: true)
-            ch_clinvar_tbi = Channel.fromPath("${vep_db_dir}/clinvar/clinvar.vcf.gz.tbi", checkIfExists: true)
-            log.info "VEP: 使用 AnnotateClinVar 插件: ${vep_db_dir}/clinvar/clinvar.vcf.gz"
-        }
-        if (vep_use_missense_zscore) {
-            ch_missense_bed = Channel.fromPath("${db_path}/missenseByTranscript.${db_prefix}.v4.1.bed", checkIfExists: true)
-            log.info "VEP: 使用 MissenseZscoreTranscript 插件: ${db_path}/missenseByTranscript.${db_prefix}.v4.1.bed"
-        }
-    } else {
-        log.info "VEP: 未提供自定义数据库目录 (vep_db_dir)，仅使用 VEP 内置注释"
-    }
-
-    // SNV/Indel 注释 (带自定义数据库和插件)
+    // SNV/Indel 注释
     VEP_ANNOTATE(
         ch_vcf,
         ch_vcf_tbi,
         ch_fasta,
         ch_fasta_fai,
         genome_assembly,
-        vep_use_pick,
-        vep_use_refseq_only,
         vep_cache_dir,
-        vep_extra_args,
-        // 自定义数据库文件
-        ch_gnomad_vcf,
-        ch_gnomad_tbi,
-        ch_alphamissense_vcf,
-        ch_alphamissense_tbi,
-        ch_evoscore_vcf,
-        ch_evoscore_tbi,
-        ch_pangolin_vcf,
-        ch_pangolin_tbi,
-        // 插件参数
-        vep_flanking_seq_len,
-        ch_clinvar_vcf,
-        ch_clinvar_tbi,
-        ch_missense_bed
+        vep_out_tag,
+        params.schema_bundle_path
     )
     .publishDir(vep_output_dir ?: 'NO_OUTPUT', mode: 'copy', enabled: vep_output_dir != 'NO_OUTPUT')
     ch_vep_vcf = ch_vep_vcf.mix(VEP_ANNOTATE.out.vep_vcf)
-    ch_vep_vcf_tbi = ch_vep_vcf_tbi.mix(VEP_ANNOTATE.out.vep_vcf_tbi)
 
-    // 线粒体注释
-    VEP_MT(
+    // 线粒体注释 (使用 tag='mt')
+    VEP_ANNOTATE(
         MUTECT2_MT.out.vcf,
         MUTECT2_MT.out.vcf_tbi,
         ch_fasta,
         ch_fasta_fai,
         genome_assembly,
         vep_cache_dir,
-        vep_extra_args
+        'mt',
+        params.schema_bundle_path
     )
     .publishDir(vep_mt_output_dir ?: 'NO_OUTPUT', mode: 'copy', enabled: vep_mt_output_dir != 'NO_OUTPUT')
-    ch_vep_mt_vcf = ch_vep_mt_vcf.mix(VEP_MT.out.vep_vcf)
-    ch_vep_mt_vcf_tbi = ch_vep_mt_vcf_tbi.mix(VEP_MT.out.vep_vcf_tbi)
+    ch_vep_mt_vcf = ch_vep_mt_vcf.mix(VEP_ANNOTATE.out.vep_vcf)
 
-    // MEI 注释
-    VEP_MEI(
+    // MEI 注释 (使用 tag='mei')
+    VEP_ANNOTATE(
         TIEA_WES.out.vcf,
         TIEA_WES.out.vcf_tbi,
         ch_fasta,
         ch_fasta_fai,
         genome_assembly,
-        vep_mei_upstream_distance,
-        vep_mei_downstream_distance,
         vep_cache_dir,
-        vep_extra_args
+        'mei',
+        params.schema_bundle_path
     )
     .publishDir(vep_mei_output_dir ?: 'NO_OUTPUT', mode: 'copy', enabled: vep_mei_output_dir != 'NO_OUTPUT')
-    ch_vep_mei_vcf = ch_vep_mei_vcf.mix(VEP_MEI.out.vep_vcf)
-    ch_vep_mei_vcf_tbi = ch_vep_mei_vcf_tbi.mix(VEP_MEI.out.vep_vcf_tbi)
+    ch_vep_mei_vcf = ch_vep_mei_vcf.mix(VEP_ANNOTATE.out.vep_vcf)
 
     // =========================================================================
     // Step 15: ROH 检测 (AutoMap)
@@ -613,7 +525,6 @@ workflow WES_SINGLE {
 
     AUTOMAP_ROH(
         VEP_ANNOTATE.out.vep_vcf,
-        VEP_ANNOTATE.out.vep_vcf_tbi,
         ch_fasta,
         ch_fasta_fai,
         ch_target_bed,           // 仅分析捕获区域内的 ROH
@@ -636,7 +547,6 @@ workflow WES_SINGLE {
 
     AUTOMAP_UPD(
         VEP_ANNOTATE.out.vep_vcf,
-        VEP_ANNOTATE.out.vep_vcf_tbi,
         ch_fasta,
         ch_fasta_fai,
         genome_assembly,
@@ -687,14 +597,8 @@ workflow WES_SINGLE {
     phasing_results         = ch_phasing                         // 单倍型定相结果 (WhatsHap)
     phasing_json            = WHATSHAP_PHASE.out.json            // 定相统计 JSON (WhatsHap)
     vep_vcf                 = ch_vep_vcf                         // VEP 注释后的 SNV/Indel VCF
-    vep_vcf_tbi             = ch_vep_vcf_tbi                     // VEP SNV/Indel VCF 索引
-    vep_summary             = VEP_ANNOTATE.out.summary           // VEP SNV/Indel 注释摘要
-    vep_mt_vcf              = ch_vep_mt_vcf                      // VEP 注释后的线粒体 VCF
-    vep_mt_vcf_tbi          = ch_vep_mt_vcf_tbi                  // VEP 线粒体 VCF 索引
-    vep_mt_summary          = VEP_MT.out.summary                 // VEP 线粒体注释摘要
-    vep_mei_vcf             = ch_vep_mei_vcf                     // VEP 注释后的 MEI VCF
-    vep_mei_vcf_tbi         = ch_vep_mei_vcf_tbi                 // VEP MEI VCF 索引
-    vep_mei_summary         = VEP_MEI.out.summary                // VEP MEI 注释摘要
+    vep_mt_vcf              = ch_vep_mt_vcf                      // VEP 注释后的线粒体 VCF (tag=mt)
+    vep_mei_vcf             = ch_vep_mei_vcf                     // VEP 注释后的 MEI VCF (tag=mei)
     // AutoMap ROH/UPD 结果
     roh_bed                 = AUTOMAP_ROH.out.roh_bed            // ROH 区域 BED 文件
     roh_csv                 = AUTOMAP_ROH.out.roh_csv            // ROH 区域 CSV 文件
