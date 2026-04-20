@@ -9,9 +9,12 @@ LABEL description="Germline variant analysis pipeline"
 # 设置工作目录
 WORKDIR /pipeline
 
-# 安装系统依赖
+# 安装系统依赖 (生物信息工具)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     git \
+    bedtools \
+    bcftools \
+    tabix \
     && rm -rf /var/lib/apt/lists/*
 
 # 安装 Python 依赖 (bin 脚本所需)
