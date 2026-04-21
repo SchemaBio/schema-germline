@@ -13,12 +13,11 @@
 ### 2. 拉取镜像
 
 ```bash
-docker pull docker.schema-bio.com/schemabio/germline:v1.0.0
 docker pull docker.schema-bio.com/schemabio/gatk:4.6.2.0
 docker pull docker.schema-bio.com/schemabio/deepvariant:1.10.0
 docker pull docker.schema-bio.com/schemabio/vep:115.2
 docker pull docker.schema-bio.com/schemabio/whatshap:2.8
-docker pull docker.schema-bio.com/schemabio/sambamba:1.0
+docker pull docker.schema-bio.com/schemabio/mapping:v1.0.0
 ```
 
 ### 3. 准备配置文件

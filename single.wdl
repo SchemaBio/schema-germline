@@ -1,6 +1,6 @@
 version 1.2
 
-# miniwdl run /home/ubuntu/schema-germline-wdl/single.wdl -p /home/ubuntu/schema-germline-wdl --cfg /home/ubuntu/schema-germline-wdl/conf/local.cfg -i /home/ubuntu/schema-germline-wdl/inputs/single.json --dir /mnt/data/output
+# miniwdl run /home/ubuntu/schema-germline/single.wdl -p /home/ubuntu/schema-germline --cfg /home/ubuntu/schema-germline/conf/local.cfg -i /home/ubuntu/schema-germline/inputs/single.json --dir /mnt/data/output
 import "tasks/fastp.wdl" as FASTP
 import "tasks/bwamem.wdl" as BWAMEM
 import "tasks/gatk.wdl" as GATK
