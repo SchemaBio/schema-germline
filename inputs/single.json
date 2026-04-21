@@ -8,6 +8,5 @@
     "SingleWES.assembly": "GRCh37",
     "SingleWES.ref_dir": "/mnt/data/database",
     "SingleWES.cache_dir": "/mnt/data/database/vep",
-    "SingleWES.schema_bundle": "/mnt/data/database/schema_bundle",
-    "SingleWES.tmp_dir": "/mnt/data/temp_workspace"
+    "SingleWES.schema_bundle": "/mnt/data/database/schema_bundle"
 }

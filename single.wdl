@@ -53,8 +53,7 @@ workflow SingleWES {
             prefix = prefix,
             bam = BwaAlign.out_bam,
             bai = BwaAlign.out_bai,
-            threads = 32,
-            tmp_dir = tmp_dir
+            threads = 32
     }
 
     # 废弃的Markdup任务，使用Sambamba替代GATK进行去重
@@ -62,8 +61,7 @@ workflow SingleWES {
     #     input:
     #         prefix = prefix,
     #         bam = BwaAlign.out_bam,
-    #         bai = BwaAlign.out_bai,
-    #         tmp_dir = tmp_dir
+    #         bai = BwaAlign.out_bai
     # }
 
     # 质控线路

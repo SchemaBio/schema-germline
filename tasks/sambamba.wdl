@@ -6,7 +6,6 @@ task SambambaMarkdup {
         File bam
         File bai
         Int threads
-        Directory tmp_dir
     }
 
     Int memory_gb = threads * 2
@@ -16,7 +15,6 @@ task SambambaMarkdup {
         export TMPDIR=~{tmp_dir}
 
         sambamba markdup \
-            --tmpdir ~{tmp_dir} \
             --nthreads ~{threads} \
             --overflow-list-size 1000000 \
             --hash-table-size 1000000 \
