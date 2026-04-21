@@ -6,14 +6,10 @@ task FixBed {
     }
 
     command <<<
-        python /pipeline/schema-germline/scripts/process_bed.py -i ~{bed} -o fixed.bed
+        python /opt/schema-germline/scripts/process_bed.py -i ~{bed} -o fixed.bed
     >>>
 
     output {
         File fixed_bed = "fixed.bed"
-    }
-
-    runtime {
-        docker: "docker.schema-bio.com/schemabio/germline:v1.0.0"
     }
 }

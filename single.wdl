@@ -10,6 +10,8 @@ import "tasks/sambamba.wdl" as SAMBAMBA
 import "tasks/samtools.wdl" as SAMTOOLS
 import "tasks/xamdst.wdl" as XAMDST
 import "tasks/deepvariant.wdl" as DEEPVARIANT
+import "tasks/germline.wdl" as GERMLINE
+import "tasks/tiea_wes.wdl" as TIEAWES
 
 workflow SingleWES {
     input {
@@ -30,6 +32,12 @@ workflow SingleWES {
     String ref_fasta_name = basename(fasta)
     File mito_bed = "assets/mito.bed"
     String clinvar_version = '20260415'
+
+    # bed 文件调整
+    call GERMLINE.FixBed as FixBed {
+        input:
+            bed = bed
+    }
 
     # BAM文件生产线
     call FASTP.Fastp as Fastp {
@@ -77,7 +85,7 @@ workflow SingleWES {
             prefix = prefix,
             bam = Markdup.markdup_bam,
             bai = Markdup.markdup_bai,
-            bed = bed,
+            bed = FixBed.fixed_bed,
             threads = 8
     }
     call XAMDST.Xamdst as MtXamdst {
@@ -93,14 +101,11 @@ workflow SingleWES {
             prefix = prefix,
             bam = Markdup.markdup_bam,
             bai = Markdup.markdup_bai,
-            bed = bed,
+            bed = FixBed.fixed_bed,
             fasta = fasta,
             threads = 8,
             ref_dir = ref_dir
     }
-
-    # SNP指纹
-
 
     # SNP InDel 分析
     call DEEPVARIANT.DeepVariant as DeepVariant {
@@ -109,7 +114,7 @@ workflow SingleWES {
             bam = Markdup.markdup_bam,
             bai = Markdup.markdup_bai,
             fasta = fasta,
-            bed = bed,
+            bed = FixBed.fixed_bed,
             threads = 16,
             flank_size = 50,
             ref_dir = ref_dir
@@ -154,23 +159,19 @@ workflow SingleWES {
             fasta = fasta,
             ref_dir = ref_dir
     }
+    String mt_vep_prefix = "~{prefix}.mt"
     call VEP.VEP as MtVEP {
         input:
-            prefix = prefix,
+            prefix = mt_vep_prefix,
             vcf = MitochondrialMutect2.vcf,
             cache_dir = cache_dir,
             schema_bundle = schema_bundle,
-            threads = 16,
+            threads = 8,
             assembly = assembly,
             fasta = fasta,
             clinvar_version = clinvar_version,
             ref_dir = ref_dir
     }
-
-    # STR分析
-
-
-
 
     # CNV分析
 
@@ -182,9 +183,27 @@ workflow SingleWES {
 
 
     # 转座子分析
+    call TIEAWES.TIEA_WES as TIEA_WES {
+        input:
+            prefix = prefix,
+            bam = Markdup.markdup_bam,
+            bai = Markdup.markdup_bai
+    }
+    String mei_vep_prefix = "~{prefix}.mei"
+    call VEP.VEP as MeiVEP {
+        input:
+            prefix = mei_vep_prefix,
+            vcf = TIEA_WES.out_vcf,
+            cache_dir = cache_dir,
+            schema_bundle = schema_bundle,
+            threads = 8,
+            assembly = assembly,
+            fasta = fasta,
+            clinvar_version = clinvar_version,
+            ref_dir = ref_dir
+    }
 
-
-
+    # STR分析
 
 
 
