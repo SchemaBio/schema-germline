@@ -12,6 +12,7 @@ import "tasks/xamdst.wdl" as XAMDST
 import "tasks/deepvariant.wdl" as DEEPVARIANT
 import "tasks/germline.wdl" as GERMLINE
 import "tasks/tiea_wes.wdl" as TIEAWES
+import "tasks/cnvkit.wdl" as CNVKIT
 
 workflow SingleWES {
     input {
@@ -22,6 +23,8 @@ workflow SingleWES {
         File bed
         Int flank_size
         String assembly
+        String cnvkit_reference
+        String cnvkit_segmentation_method
         Directory ref_dir
         Directory cache_dir
         Directory schema_bundle
@@ -174,8 +177,31 @@ workflow SingleWES {
     }
 
     # CNV分析
-
-
+    call CNVKIT.CNVKitAntitarget as CNVKitAntitarget {
+        input:
+            prefix = prefix,
+            fasta = fasta,
+            assembly = assembly,
+            target_bed = FixBed.fixed_bed,
+            ref_dir = ref_dir
+    }
+    call CNVKIT.CNVKitCoverage as CNVKitCoverage {
+        input:
+            prefix = prefix,
+            target_bed = FixBed.fixed_bed,
+            antitarget_bed = CNVKitAntitarget.antitarget_bed,
+            bam = Markdup.markdup_bam,
+            bai = Markdup.markdup_bai,
+            threads = 8
+    }
+    call CNVKIT.CNVKitFix as CNVKitFix {
+        input:
+            prefix = prefix,
+            target_coverage = CNVKitCoverage.target_coverage,
+            antitarget_coverage = CNVKitCoverage.antitarget_coverage,
+            reference = cnvkit_reference,
+            segmentation_method = cnvkit_segmentation_method
+    }
 
     # ROH / UPD 分析
 

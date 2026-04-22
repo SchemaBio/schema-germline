@@ -9,9 +9,9 @@ task SamtoolsSexCheck {
     }
 
     command <<<
-        if [ "~{assembly}" == "hg38" ]; then
+        if [ "~{assembly}" == "GRCh38" ]; then
             samtools view ~{bam} Y:2654896-2655723 | wc -l > ~{prefix}.SRY.count.txt
-        elif [ "~{assembly}" == "hg19" ]; then
+        elif [ "~{assembly}" == "GRCh37" ]; then
             samtools view ~{bam} Y:2649520-2650357 | wc -l > ~{prefix}.SRY.count.txt
         else
             echo "Unsupported assembly: ~{assembly}" >&2
