@@ -66,7 +66,7 @@ def run_bcftools_mpileup(bam: str, fasta: str, positions_file: str,
         positions_file: File with positions (chr:pos format)
         output_vcf: Output VCF file path
         threads: Number of threads
-        min_dp: Minimum depth filter
+        max_dp: Maximum depth per position (default: 200)
 
     Returns:
         Path to output VCF
