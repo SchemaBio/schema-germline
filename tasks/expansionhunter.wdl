@@ -24,17 +24,26 @@ task ExpansionHunter {
             sex="female"
         fi
 
+        if [ "~{assembly}" == "GRCh38" ]; then
+            fix_assembly="grch38"
+        elif [ "~{assembly}" == "GRCh37" ]; then
+            fix_assembly="grch37"
+        else
+            echo "Unsupported assembly: ~{assembly}" >&2
+            exit 1
+        fi
+
         ExpansionHunter \
             --reads ~{bam} \
             --reference ~{fasta} \
-            --variant-catalog /variant_catalog/~{assembly}/variant_catalog.json \
+            --variant-catalog /variant_catalog/~{fix_assembly}/variant_catalog.json \
             --output-prefix ~{prefix} \
             -n ~{threads} \
             --sex ${sex}    
     >>>
 
     output {
-        File str_vcf = "~{prefix}.vcf"
+        File str_vcf = "~{prefix}.str.vcf"
     }
 
     runtime {

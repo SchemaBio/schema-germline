@@ -41,5 +41,40 @@ task TargetBed {
     runtime {
         docker: "docker.schema-bio.com/schemabio/germline:v0.0.3"
     }
+}
 
+task FingerPrint {
+    input {
+        String prefix
+        String fasta
+        File bam
+        File bai
+        String assembly
+        Directory ref_dir
+        Int threads
+    }
+
+    command <<<
+        if [ "~{assembly}" == "GRCh38" ]; then
+            fix_assembly="grch38"
+        elif [ "~{assembly}" == "GRCh37" ]; then
+            fix_assembly="grch37"
+        else
+            echo "Unsupported assembly: ~{assembly}" >&2
+            exit 1
+        fi
+
+        python3 /opt/schema-germline/scripts/sample_fingerprint.py -b ~{bam} -f ~{fasta} \
+            -s /opt/schema-germline/assets/pengelly_snp.txt -a ~{fix_assembly} -t ~{threads} \
+            --format json -o ~{prefix}.fingerprint.json
+    >>>
+
+    output {
+        File fingerprint_json = "~{prefix}.fingerprint.json"
+    }
+
+    runtime {
+        cpu: threads
+        docker: "docker.schema-bio.com/schemabio/germline:v0.0.3"
+    }
 }

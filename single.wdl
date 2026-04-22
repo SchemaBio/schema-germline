@@ -13,6 +13,8 @@ import "tasks/deepvariant.wdl" as DEEPVARIANT
 import "tasks/germline.wdl" as GERMLINE
 import "tasks/tiea_wes.wdl" as TIEAWES
 import "tasks/cnvkit.wdl" as CNVKIT
+import "tasks/expansionhunter.wdl" as EXPANSIONHUNTER
+import "tasks/stranger.wdl" as STRANGER
 
 workflow SingleWES {
     input {
@@ -25,6 +27,7 @@ workflow SingleWES {
         String assembly
         String cnvkit_reference
         String cnvkit_segmentation_method
+        Int sry_sex_cutoff
         Directory ref_dir
         Directory cache_dir
         Directory schema_bundle
@@ -114,6 +117,16 @@ workflow SingleWES {
             fasta = fasta,
             threads = 8,
             ref_dir = ref_dir
+    }
+    call GERMLINE.FingerPrint as FingerPrint {
+        input:
+            prefix = prefix,
+            fasta = fasta,
+            bam = Markdup.markdup_bam,
+            bai = Markdup.markdup_bai,
+            assembly = assembly,
+            ref_dir = ref_dir,
+            threads = 4
     }
 
     # SNP InDel 分析
@@ -236,7 +249,22 @@ workflow SingleWES {
     }
 
     # STR分析
-
-
-
+    call EXPANSIONHUNTER.ExpansionHunter as ExpansionHunter {
+        input:
+            prefix = prefix,
+            bam = Markdup.markdup_bam,
+            bai = Markdup.markdup_bai,
+            fasta = fasta,
+            sry_file = SamtoolsSexCheck.sry_file,
+            ref_dir = ref_dir,
+            assembly = assembly,
+            threads = 8,
+            sex_cutoff = sry_sex_cutoff
+    }
+    call STRANGER.Stranger as Stranger {
+        input:
+            prefix = prefix,
+            vcf = ExpansionHunter.str_vcf,
+            assembly = assembly
+    }
 }
