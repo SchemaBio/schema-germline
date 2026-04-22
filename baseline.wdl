@@ -18,9 +18,16 @@ workflow CNVBaseline {
     }
 
     String ref_fasta_name = basename(fasta)
-    Int fastp_threads = 8
-    Int bwa_threads = 16
-    Int cnvkit_threads = 8
+    Int total_threads = 32
+    Int num_samples = length(read_1)
+
+    # 动态计算基础线程数
+    Int base_threads = total_threads / num_samples
+
+    # 应用各任务的最小/最大约束
+    Int fastp_threads = if base_threads < 8 then 8 else if base_threads > 16 then 16 else base_threads
+    Int bwa_threads = if base_threads < 16 then 16 else if base_threads > 32 then 32 else base_threads
+    Int cnvkit_threads = if base_threads < 8 then 8 else if base_threads > 16 then 16 else base_threads
 
     call GERMLINE.FixBed as FixBed {
         input:
