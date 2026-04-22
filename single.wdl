@@ -15,6 +15,7 @@ import "tasks/tiea_wes.wdl" as TIEAWES
 import "tasks/cnvkit.wdl" as CNVKIT
 import "tasks/expansionhunter.wdl" as EXPANSIONHUNTER
 import "tasks/stranger.wdl" as STRANGER
+import "tasks/automap.wdl" as AUTOMAP
 
 workflow SingleWES {
     input {
@@ -222,10 +223,20 @@ workflow SingleWES {
             segmentation_method = cnvkit_segmentation_method
     }
 
-    # ROH / UPD 分析
-
-
-
+    # LOH：杂合性缺失
+    # ROH：连续纯合区域，可能提示隐性遗传病位点
+    # UPD：单亲二倍体，可能提示隐性遗传病位点或印记基因异常
+    # UPD是ROH的极端情况，ROH是UPD的轻度情况
+    # ROH可以由父母双方遗传的相同片段组成，也可以由单亲二倍体（UPD）组成。UPD会导致整个染色体或大片段的ROH
+    # 而普通ROH通常较短且分布在多个染色体上。ROH和UPD都可能提示隐性遗传病位点
+    # 但UPD还可能涉及印记基因异常。ROH分析可以帮助识别潜在的隐性遗传病位点，而UPD分析可以进一步揭示是否存在单亲二倍体现象
+    call AUTOMAP.AutoMap as AutoMap {
+        input:
+            prefix = prefix,
+            vcf = LeftAlignAndTrimVariants.left_vcf,
+            assembly = assembly,
+            threads = 4
+    }
 
     # 转座子分析
     call TIEAWES.TIEA_WES as TIEA_WES {
