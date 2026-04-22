@@ -39,7 +39,7 @@ task TargetBed {
     }
 
     runtime {
-        docker: "docker.schema-bio.com/schemabio/germline:v0.0.3"
+        docker: "docker.schema-bio.com/schemabio/germline:v0.0.4"
     }
 }
 
@@ -75,6 +75,6 @@ task FingerPrint {
 
     runtime {
         cpu: threads
-        docker: "docker.schema-bio.com/schemabio/germline:v0.0.3"
+        docker: "docker.schema-bio.com/schemabio/germline:v0.0.4"
     }
 }
