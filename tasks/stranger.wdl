@@ -17,7 +17,7 @@ task Stranger {
             exit 1
         fi
 
-        stranger ~{vcf} -f /stranger/resources/variant_catalog_${fix_assembly}.json > ~{prefix}.str.anno.vcf
+        stranger ~{vcf} -f /app/stranger/resources/variant_catalog_${fix_assembly}.json > ~{prefix}.str.anno.vcf
     >>>
 
     output {

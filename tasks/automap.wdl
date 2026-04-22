@@ -38,7 +38,7 @@ task AutoMap {
     }
 
     runtime {
-        docker: "docker.schema-bio.com/schemabio/automap:v1.3"
+        docker: "docker.schema-bio.com/schemabio/automap:1.3"
         cpu: threads
         memory: "~{memory_gb}G"
     }
