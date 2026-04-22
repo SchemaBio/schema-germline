@@ -6,7 +6,7 @@ task FixBed {
     }
 
     command <<<
-        python /opt/schema-germline/scripts/process_bed.py -i ~{bed} -o fixed.bed
+        python3 /opt/schema-germline/scripts/process_bed.py -i ~{bed} -o fixed.bed
     >>>
 
     output {
@@ -65,7 +65,7 @@ task FingerPrint {
         fi
 
         python3 /opt/schema-germline/scripts/sample_fingerprint.py -b ~{bam} -f ~{fasta} \
-            -s /opt/schema-germline/assets/pengelly_snp.txt -a ~{fix_assembly} -t ~{threads} \
+            -s /opt/schema-germline/assets/pengelly_snp.txt -a ${fix_assembly} -t ~{threads} \
             --format json -o ~{prefix}.fingerprint.json
     >>>
 

@@ -47,7 +47,7 @@ task CNVKitAntitarget {
             exit 1
         fi
 
-        cnvkit.py access ~{fasta} -x ${excludeble_bed} -o access.bed
+        cnvkit.py access ~{ref_dir}/~{fasta} -x ${excludeble_bed} -o access.bed
         cnvkit.py antitarget ~{target_bed} -g access.bed -o ~{prefix}.antitarget.bed
     >>>
 
@@ -96,7 +96,7 @@ task CNVKitReference {
     }
 
     command <<<
-        cnvkit.py reference -f ~{fasta} -o ~{prefix}.cnvkit.cnn \
+        cnvkit.py reference -f ~{ref_dir}/~{fasta} -o ~{prefix}.cnvkit.cnn \
             ~{sep=" " target_coverages} \
             ~{sep=" " antitarget_coverages}
     >>>

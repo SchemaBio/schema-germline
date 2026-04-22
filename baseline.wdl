@@ -1,5 +1,6 @@
 version 1.2
 
+# miniwdl run /home/ubuntu/schema-germline/baseline.wdl -p /home/ubuntu/schema-germline --cfg /home/ubuntu/schema-germline/conf/local.cfg -i /home/ubuntu/schema-germline/inputs/baseline.json --dir /mnt/data/output
 import "tasks/fastp.wdl" as FASTP
 import "tasks/germline.wdl" as GERMLINE
 import "tasks/cnvkit.wdl" as CNVKIT
@@ -37,7 +38,7 @@ workflow CNVBaseline {
         input:
             prefix = prefix,
             target_bed = TargetBed.target_bed,
-            fasta = fasta,
+            fasta = ref_fasta_name,
             assembly = assembly,
             ref_dir = ref_dir
     }
@@ -75,7 +76,7 @@ workflow CNVBaseline {
     call CNVKIT.CNVKitReference as CNVKitReference {
         input:
             prefix = prefix,
-            fasta = fasta,
+            fasta = ref_fasta_name,
             target_coverages = CNVKitCoverage.target_coverage,
             antitarget_coverages = CNVKitCoverage.antitarget_coverage,
             ref_dir = ref_dir

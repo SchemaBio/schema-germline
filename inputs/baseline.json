@@ -4,12 +4,12 @@
     "CNVBaseline.fasta": "/mnt/data/database/Homo_sapiens.GRCh37.dna.primary_assembly.fa",
     "CNVBaseline.assembly": "GRCh37",
     "CNVBaseline.read_1": [
-        "/path/to/sample1_R1.fastq.gz",
-        "/path/to/sample2_R1.fastq.gz"
+        "/mnt/data/test/202511_father_ILMN_1.fq.gz",
+        "/mnt/data/test/202511_mother_ILMN_1.fq.gz"
     ],
     "CNVBaseline.read_2": [
-        "/path/to/sample1_R2.fastq.gz",
-        "/path/to/sample2_R2.fastq.gz"
+        "/mnt/data/test/202511_father_ILMN_2.fq.gz",
+        "/mnt/data/test/202511_mother_ILMN_2.fq.gz"
     ],
     "CNVBaseline.ref_dir": "/mnt/data/database"
 }
