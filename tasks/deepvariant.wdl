@@ -19,7 +19,7 @@ task DeepVariant {
 
         /opt/deepvariant/bin/run_deepvariant \
             --model_type WES \
-            --ref ~{fasta} \
+            --ref ~{ref_dir}/~{fasta} \
             --reads ~{bam} \
             --output_vcf ~{prefix}.vcf.gz \
             --output_gvcf ~{prefix}.gvcf.vcf.gz \

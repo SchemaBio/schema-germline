@@ -11,7 +11,7 @@ task MitochondrialMutect2 {
 
     command <<<
         gatk Mutect2 \
-            -R ~{fasta} \
+            -R ~{ref_dir}/~{fasta} \
             -L MT \
             --mitochondria-mode \
             -I ~{bam} \
@@ -19,7 +19,7 @@ task MitochondrialMutect2 {
 
         gatk FilterMutectCalls \
             -V ~{prefix}.mt.vcf.gz \
-            -R ~{fasta} \
+            -R ~{ref_dir}/~{fasta} \
             -O ~{prefix}.mt.filtered.vcf.gz
         
         gatk SelectVariants \
@@ -51,7 +51,7 @@ task LeftAlignAndTrimVariants {
 
     command <<<
         gatk LeftAlignAndTrimVariants \
-            -R ~{fasta} \
+            -R ~{ref_dir}/~{fasta} \
             -V ~{vcf} \
             -O ~{prefix}.left.vcf.gz \
             --split-multi-allelics
@@ -120,13 +120,13 @@ task CollectQCMetrics {
 
         gatk CollectAlignmentSummaryMetrics \
             -I ~{bam} \
-            -R ~{fasta} \
+            -R ~{ref_dir}/~{fasta} \
             -O ~{prefix}.metrics.txt
 
         gatk BedToIntervalList \
             -I ~{bed} \
             -O ~{prefix}.interval_list \
-            -SD ~{fasta}
+            -SD ~{ref_dir}/~{fasta}
 
         gatk CollectHsMetrics \
             -BI ~{prefix}.interval_list \

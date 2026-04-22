@@ -115,14 +115,14 @@ workflow SingleWES {
             bam = Markdup.markdup_bam,
             bai = Markdup.markdup_bai,
             bed = FixBed.fixed_bed,
-            fasta = fasta,
+            fasta = ref_fasta_name,
             threads = 8,
             ref_dir = ref_dir
     }
     call GERMLINE.FingerPrint as FingerPrint {
         input:
             prefix = prefix,
-            fasta = fasta,
+            fasta = ref_fasta_name,
             bam = Markdup.markdup_bam,
             bai = Markdup.markdup_bai,
             assembly = assembly,
@@ -136,7 +136,7 @@ workflow SingleWES {
             prefix = prefix,
             bam = Markdup.markdup_bam,
             bai = Markdup.markdup_bai,
-            fasta = fasta,
+            fasta = ref_fasta_name,
             bed = FixBed.fixed_bed,
             threads = 16,
             flank_size = 50,
@@ -148,7 +148,7 @@ workflow SingleWES {
             bam = Markdup.markdup_bam,
             bai = Markdup.markdup_bai,
             vcf = DeepVariant.vcf,
-            fasta = fasta,
+            fasta = ref_fasta_name,
             threads = 8,
             ref_dir = ref_dir
     }
@@ -157,7 +157,7 @@ workflow SingleWES {
             prefix = prefix,
             vcf = Whatshap.out_vcf,
             vcf_tbi = Whatshap.out_vcf_tbi,
-            fasta = fasta,
+            fasta = ref_fasta_name,
             ref_dir = ref_dir
     }
     call VEP.VEP as VEP {
@@ -168,7 +168,7 @@ workflow SingleWES {
             schema_bundle = schema_bundle,
             threads = 16,
             assembly = assembly,
-            fasta = fasta,
+            fasta = ref_fasta_name,
             clinvar_version = clinvar_version,
             ref_dir = ref_dir
     }
@@ -179,7 +179,7 @@ workflow SingleWES {
             prefix = prefix,
             bam = Markdup.markdup_bam,
             bai = Markdup.markdup_bai,
-            fasta = fasta,
+            fasta = ref_fasta_name,
             ref_dir = ref_dir
     }
     String mt_vep_prefix = "~{prefix}.mt"
@@ -191,7 +191,7 @@ workflow SingleWES {
             schema_bundle = schema_bundle,
             threads = 8,
             assembly = assembly,
-            fasta = fasta,
+            fasta = ref_fasta_name,
             clinvar_version = clinvar_version,
             ref_dir = ref_dir
     }
@@ -200,7 +200,7 @@ workflow SingleWES {
     call CNVKIT.CNVKitAntitarget as CNVKitAntitarget {
         input:
             prefix = prefix,
-            fasta = fasta,
+            fasta = ref_fasta_name,
             assembly = assembly,
             target_bed = TargetBed.target_bed,
             ref_dir = ref_dir
@@ -254,7 +254,7 @@ workflow SingleWES {
             schema_bundle = schema_bundle,
             threads = 8,
             assembly = assembly,
-            fasta = fasta,
+            fasta = ref_fasta_name,
             clinvar_version = clinvar_version,
             ref_dir = ref_dir
     }
@@ -265,7 +265,7 @@ workflow SingleWES {
             prefix = prefix,
             bam = Markdup.markdup_bam,
             bai = Markdup.markdup_bai,
-            fasta = fasta,
+            fasta = ref_fasta_name,
             sry_file = SamtoolsSexCheck.sry_file,
             ref_dir = ref_dir,
             assembly = assembly,

@@ -16,7 +16,7 @@ task Whatshap {
     command <<<
         whatshap phase \
             --indels \
-            --reference=~{fasta} \
+            --reference=~{ref_dir}/~{fasta} \
             -o ~{prefix}.phase.vcf \
             ~{vcf} \
             ~{bam}

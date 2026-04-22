@@ -36,7 +36,7 @@ task VEP {
             --force_overwrite --fork ~{threads} \
             -i ~{vcf} -o ~{prefix}.vep.vcf \
             --format vcf --vcf \
-            --fa ~{fasta} \
+            --fa ~{ref_dir}/~{fasta} \
             --shift_3prime 1 --assembly ~{assembly} --no_escape --check_existing -exclude_predicted --uploaded_allele --show_ref_allele --numbers --domains \
             --total_length --hgvs --hgvsg --symbol --ccds --uniprot --max_af --pubmed \
             --transcript_filter "stable_id match N[MR]_" \

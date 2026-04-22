@@ -64,7 +64,7 @@ task FingerPrint {
             exit 1
         fi
 
-        python3 /opt/schema-germline/scripts/sample_fingerprint.py -b ~{bam} -f ~{fasta} \
+        python3 /opt/schema-germline/scripts/sample_fingerprint.py -b ~{bam} -f ~{ref_dir}/~{fasta} \
             -s /opt/schema-germline/assets/pengelly_snp.txt -a ${fix_assembly} -t ~{threads} \
             --format json -o ~{prefix}.fingerprint.json
     >>>
