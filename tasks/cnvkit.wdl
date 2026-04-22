@@ -86,6 +86,7 @@ task CNVKitCoverage {
     }
 }
 
+# CNVKit的这个步骤要求输入的fai必须是比fasta新的，此处在初始化流程中修改
 task CNVKitReference {
     input {
         String prefix
@@ -96,7 +97,7 @@ task CNVKitReference {
     }
 
     command <<<
-        cnvkit.py reference -f ~{ref_dir}/~{fasta} -o ~{prefix}.cnvkit.cnn \
+        cnvkit.py reference -f ~{fasta} -o ~{prefix}.cnvkit.cnn \
             ~{sep=" " target_coverages} \
             ~{sep=" " antitarget_coverages}
     >>>

@@ -32,7 +32,6 @@ workflow SingleWES {
         Directory ref_dir
         Directory cache_dir
         Directory schema_bundle
-        Directory tmp_dir
     }
 
     # 参数调整

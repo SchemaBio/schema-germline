@@ -7,6 +7,9 @@
     "SingleWES.flank_size": 50,
     "SingleWES.assembly": "GRCh37",
     "SingleWES.ref_dir": "/mnt/data/database",
+    "SingleWES.cnvkit_reference": "",
+    "SingleWES.cnvkit_segmentation_method": "",
+    "SingleWES.sry_sex_cutoff": 20,
     "SingleWES.cache_dir": "/mnt/data/database/vep",
     "SingleWES.schema_bundle": "/mnt/data/database/schema_bundle"
 }
