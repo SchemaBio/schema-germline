@@ -26,10 +26,17 @@ workflow CNVBaseline {
             bed = bed
     }
 
+    call GERMLINE.TargetBed as TargetBed {
+        input:
+            prefix = prefix,
+            bed = FixBed.fixed_bed,
+            assembly = assembly
+    }
+
     call CNVKIT.CNVKitAntitarget as CNVKitAntitarget {
         input:
             prefix = prefix,
-            target_bed = FixBed.fixed_bed,
+            target_bed = TargetBed.target_bed,
             fasta = fasta,
             assembly = assembly,
             ref_dir = ref_dir
@@ -57,7 +64,7 @@ workflow CNVBaseline {
         call CNVKIT.CNVKitCoverage as CNVKitCoverage {
             input:
                 prefix = "~{prefix}_sample~{i}",
-                target_bed = FixBed.fixed_bed,
+                target_bed = TargetBed.target_bed,
                 antitarget_bed = CNVKitAntitarget.antitarget_bed,
                 bam = BwaAlign.out_bam,
                 bai = BwaAlign.out_bai,

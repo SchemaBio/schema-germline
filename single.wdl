@@ -41,6 +41,12 @@ workflow SingleWES {
         input:
             bed = bed
     }
+    call GERMLINE.TargetBed as TargetBed {
+        input:
+            prefix = prefix,
+            bed = FixBed.fixed_bed,
+            assembly = assembly
+    }
 
     # BAM文件生产线
     call FASTP.Fastp as Fastp {
@@ -182,13 +188,13 @@ workflow SingleWES {
             prefix = prefix,
             fasta = fasta,
             assembly = assembly,
-            target_bed = FixBed.fixed_bed,
+            target_bed = TargetBed.target_bed,
             ref_dir = ref_dir
     }
     call CNVKIT.CNVKitCoverage as CNVKitCoverage {
         input:
             prefix = prefix,
-            target_bed = FixBed.fixed_bed,
+            target_bed = TargetBed.target_bed,
             antitarget_bed = CNVKitAntitarget.antitarget_bed,
             bam = Markdup.markdup_bam,
             bai = Markdup.markdup_bai,
