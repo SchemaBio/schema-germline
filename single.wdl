@@ -32,7 +32,6 @@ workflow SingleWES {
         Directory ref_dir
         Directory cache_dir
         Directory schema_bundle
-        Directory temp_dir
     }
 
     # 参数调整
@@ -74,8 +73,7 @@ workflow SingleWES {
             prefix = prefix,
             bam = BwaAlign.out_bam,
             bai = BwaAlign.out_bai,
-            threads = 32,
-            tmp_dir = temp_dir
+            threads = 32
     }
 
     # 废弃的Markdup任务，使用Sambamba替代GATK进行去重

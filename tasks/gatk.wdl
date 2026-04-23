@@ -71,7 +71,6 @@ task MarkDuplicates {
         String prefix
         File bam
         File bai
-        Directory tmp_dir
     }
 
     command <<<
@@ -81,7 +80,7 @@ task MarkDuplicates {
             -I ~{bam} \
             -O ~{prefix}.markdup.bam \
             -M ~{prefix}.markdup.metrics.txt \
-            --TMP_DIR ~{tmp_dir} \
+            --TMP_DIR ./tmp \
             --CREATE_INDEX true
         
         mv ~{prefix}.markdup.bai ~{prefix}.markdup.bam.bai

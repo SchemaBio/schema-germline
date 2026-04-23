@@ -6,7 +6,6 @@ task SambambaMarkdup {
         File bam
         File bai
         Int threads
-        Directory tmp_dir
     }
 
     Int memory_gb = threads * 2
@@ -21,7 +20,7 @@ task SambambaMarkdup {
             --compression-level 1 \
             ~{bam} \
             ~{prefix}.markdup.bam \
-            --tmpdir=~{tmp_dir}
+            --tmpdir=./tmp
 
         samtools index ~{prefix}.markdup.bam
     >>>

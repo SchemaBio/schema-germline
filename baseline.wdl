@@ -16,7 +16,6 @@ workflow CNVBaseline {
         Array[File] read_1
         Array[File] read_2
         Directory ref_dir
-        Directory temp_dir
     }
 
     String ref_fasta_name = basename(fasta)
@@ -76,8 +75,7 @@ workflow CNVBaseline {
                 prefix = "~{prefix}_sample~{i}",
                 bam = BwaAlign.out_bam,
                 bai = BwaAlign.out_bai,
-                threads = bwa_threads,
-                tmp_dir = temp_dir
+                threads = bwa_threads
         }
         
         call CNVKIT.CNVKitCoverage as CNVKitCoverage {
