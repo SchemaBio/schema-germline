@@ -5,6 +5,7 @@ import "tasks/fastp.wdl" as FASTP
 import "tasks/germline.wdl" as GERMLINE
 import "tasks/cnvkit.wdl" as CNVKIT
 import "tasks/bwamem.wdl" as BWAMEM
+import "tasks/sambamba.wdl" as SAMBAMBA
 
 workflow CNVBaseline {
     input {
@@ -15,6 +16,7 @@ workflow CNVBaseline {
         Array[File] read_1
         Array[File] read_2
         Directory ref_dir
+        Directory temp_dir
     }
 
     String ref_fasta_name = basename(fasta)
@@ -69,13 +71,22 @@ workflow CNVBaseline {
                 threads = bwa_threads
         }
 
+        call SAMBAMBA.SambambaMarkdup as Markdup {
+            input:
+                prefix = "~{prefix}_sample~{i}",
+                bam = BwaAlign.out_bam,
+                bai = BwaAlign.out_bai,
+                threads = bwa_threads,
+                tmp_dir = temp_dir
+        }
+        
         call CNVKIT.CNVKitCoverage as CNVKitCoverage {
             input:
                 prefix = "~{prefix}_sample~{i}",
                 target_bed = TargetBed.target_bed,
                 antitarget_bed = CNVKitAntitarget.antitarget_bed,
-                bam = BwaAlign.out_bam,
-                bai = BwaAlign.out_bai,
+                bam = Markdup.markdup_bam,
+                bai = Markdup.markdup_bai,
                 threads = cnvkit_threads
         }
     }

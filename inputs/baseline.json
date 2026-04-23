@@ -11,5 +11,6 @@
         "/mnt/data/test/202511_father_ILMN_2.fq.gz",
         "/mnt/data/test/202511_mother_ILMN_2.fq.gz"
     ],
-    "CNVBaseline.ref_dir": "/mnt/data/database"
+    "CNVBaseline.ref_dir": "/mnt/data/database",
+    "CNVBaseline.temp_dir": "/mnt/data/temp_workspace"
 }

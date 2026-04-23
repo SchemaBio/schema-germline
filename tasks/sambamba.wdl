@@ -6,13 +6,13 @@ task SambambaMarkdup {
         File bam
         File bai
         Int threads
+        Directory tmp_dir
     }
 
     Int memory_gb = threads * 2
 
     command <<<
         set -e
-        export TMPDIR=~{tmp_dir}
 
         sambamba markdup \
             --nthreads ~{threads} \
@@ -20,7 +20,8 @@ task SambambaMarkdup {
             --hash-table-size 1000000 \
             --compression-level 1 \
             ~{bam} \
-            ~{prefix}.markdup.bam
+            ~{prefix}.markdup.bam \
+            --tmpdir=~{tmp_dir}
 
         samtools index ~{prefix}.markdup.bam
     >>>

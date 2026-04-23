@@ -71,11 +71,11 @@ task MarkDuplicates {
         String prefix
         File bam
         File bai
+        Directory tmp_dir
     }
 
     command <<<
         set -e
-        export TMPDIR=~{tmp_dir}
 
         gatk MarkDuplicates \
             -I ~{bam} \

@@ -24,7 +24,7 @@ task AutoMap {
 
         bash /opt/AutoMap/AutoMap_v1.3.sh \
             --vcf ~{vcf} \
-            --genome ~{fix_assembly} \
+            --genome ${fix_assembly} \
             --out result \
             --id ~{prefix}
         

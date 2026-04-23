@@ -11,5 +11,6 @@
     "SingleWES.cnvkit_segmentation_method": "hmm-germline",
     "SingleWES.sry_sex_cutoff": 20,
     "SingleWES.cache_dir": "/mnt/data/database/vep",
-    "SingleWES.schema_bundle": "/mnt/data/database/schema_bundle"
+    "SingleWES.schema_bundle": "/mnt/data/database/schema_bundle",
+    "SingleWES.temp_dir": "/mnt/data/temp_workspace"
 }

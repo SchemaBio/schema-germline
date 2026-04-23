@@ -36,7 +36,7 @@ task ExpansionHunter {
         ExpansionHunter \
             --reads ~{bam} \
             --reference ~{ref_dir}/~{fasta} \
-            --variant-catalog /app/ExpansionHunter-v5.0.0-linux_x86_64/variant_catalog/~{fix_assembly}/variant_catalog.json \
+            --variant-catalog /app/ExpansionHunter-v5.0.0-linux_x86_64/variant_catalog/${fix_assembly}/variant_catalog.json \
             --output-prefix ~{prefix} \
             -n ~{threads} \
             --sex ${sex}    
