@@ -39,11 +39,12 @@ task ExpansionHunter {
             --variant-catalog /app/ExpansionHunter-v5.0.0-linux_x86_64/variant_catalog/${fix_assembly}/variant_catalog.json \
             --output-prefix ~{prefix} \
             -n ~{threads} \
-            --sex ${sex}    
+            --sex ${sex}
     >>>
 
     output {
-        File str_vcf = "~{prefix}.str.vcf"
+        File str_vcf = "~{prefix}.vcf"
+        File str_json = "~{prefix}.json"
     }
 
     runtime {

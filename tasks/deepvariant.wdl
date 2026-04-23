@@ -22,7 +22,7 @@ task DeepVariant {
             --ref ~{ref_dir}/~{fasta} \
             --reads ~{bam} \
             --output_vcf ~{prefix}.vcf.gz \
-            --output_gvcf ~{prefix}.gvcf.vcf.gz \
+            --output_gvcf ~{prefix}.g.vcf.gz \
             --num_shards ~{threads} \
             --regions extended.bed
     >>>

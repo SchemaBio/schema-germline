@@ -26,7 +26,7 @@ workflow SingleWES {
         File bed
         Int flank_size
         String assembly
-        String cnvkit_reference
+        File cnvkit_reference
         String cnvkit_segmentation_method
         Int sry_sex_cutoff
         Directory ref_dir
@@ -262,9 +262,10 @@ workflow SingleWES {
     }
 
     # STR分析
+    String str_prefix = "~{prefix}.str"
     call EXPANSIONHUNTER.ExpansionHunter as ExpansionHunter {
         input:
-            prefix = prefix,
+            prefix = str_prefix,
             bam = Markdup.markdup_bam,
             bai = Markdup.markdup_bai,
             fasta = ref_fasta_name,

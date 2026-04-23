@@ -9,7 +9,7 @@ task TIEA_WES {
 
     command <<<
         python /app/TIEA-WES.py -p ~{prefix} -i ~{bam} -o result
-        cp result/~{prefix}.mei.vcf ~{prefix}.mei.vcf
+        cp result/~{prefix}.te.result.vcf ~{prefix}.mei.vcf
     >>>
 
     output {
