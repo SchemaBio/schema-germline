@@ -25,19 +25,20 @@ def load_snp_positions(snp_file: str, assembly: str = "grch38") -> list:
     Returns:
         List of tuples: (chromosome, position, rsid, gene)
     """
-    col_map = {"grch37": 2, "grch38": 3}
-    pos_col = col_map.get(assembly.lower(), 3)
+    # File format: Chromosome, grch37_pos, grch38_pos, rsid, gene
+    col_map = {"grch37": 1, "grch38": 2}
+    pos_col = col_map.get(assembly.lower(), 2)
 
     positions = []
     with open(snp_file, 'r') as f:
         header = f.readline()  # Skip header
         for line in f:
             parts = line.strip().split('\t')
-            if len(parts) >= 6:
-                chrom = parts[1]
+            if len(parts) >= 5:
+                chrom = parts[0]
                 pos = parts[pos_col]
-                rsid = parts[4]
-                gene = parts[5]
+                rsid = parts[3]
+                gene = parts[4]
                 positions.append((chrom, pos, rsid, gene))
 
     return positions
@@ -45,13 +46,15 @@ def load_snp_positions(snp_file: str, assembly: str = "grch38") -> list:
 
 def create_position_file(positions: list, output_file: str):
     """
-    Create a position file for bcftools mpileup.
+    Create a BED format position file for bcftools mpileup.
 
-    Format: chr:position (1-based)
+    Format: chrom\tstart\tend (0-based, single base)
     """
     with open(output_file, 'w') as f:
         for chrom, pos, rsid, gene in positions:
-            f.write(f"{chrom}:{pos}\n")
+            pos_int = int(pos)
+            # BED format: 0-based start, end = start + 1 for single position
+            f.write(f"{chrom}\t{pos_int - 1}\t{pos_int}\n")
 
 
 def run_bcftools_mpileup(bam: str, fasta: str, positions_file: str,
@@ -75,18 +78,18 @@ def run_bcftools_mpileup(bam: str, fasta: str, positions_file: str,
     mpileup_cmd = [
         "bcftools", "mpileup",
         "-f", fasta,
-        "-l", positions_file,
+        "-R", positions_file,
         "-a", "AD,DP",
         "-d", str(max_dp),  # Limit max depth for efficiency
         "--threads", str(threads),
         bam
     ]
 
-    # Run call with genotype likelihoods (specify ploidy to avoid warning)
+    # Run call with genotype likelihoods (output all sites, not just variants)
     call_cmd = [
         "bcftools", "call",
         "--ploidy", "2",
-        "-mv",
+        "-c",
         "-Ov",
         "-o", output_vcf
     ]
@@ -167,9 +170,13 @@ def extract_genotypes(vcf_file: str, positions: list,
                 ref_depth = ad_values[0] if len(ad_values) > 0 else 0
                 alt_depths = ad_values[1:] if len(ad_values) > 1 else []
 
+                # Handle ALT field: '.' means no alternate allele
+                alt = parts[4]
+                alt_list = [] if alt == '.' else alt.split(',')
+
                 # Determine genotype based on frequencies
                 genotype, status = determine_genotype(
-                    ref, alt.split(','), ref_depth, alt_depths, dp,
+                    ref, alt_list, ref_depth, alt_depths, dp,
                     min_dp, min_af, max_af_het
                 )
 
@@ -182,7 +189,7 @@ def extract_genotypes(vcf_file: str, positions: list,
                     'pos': pos,
                     'genotype': genotype,
                     'ref': ref,
-                    'alt': alt,
+                    'alt': alt if alt != '.' else ref,  # Show ref for homozygous reference
                     'dp': dp,
                     'ad': ad_str,
                     'af': ','.join(f"{af:.2f}" for af in af_values),
