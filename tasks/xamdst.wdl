@@ -13,7 +13,7 @@ task Xamdst {
 
     command <<<
         xamdst -1 -p ~{bed} -o result --threads ~{threads} --cutoffdepth 1000 ~{bam}
-        cp result/coverage.report ~{prefix}.xamdst.report.json
+        cp result/coverage.report.json ~{prefix}.xamdst.report.json
     >>>
 
     output {

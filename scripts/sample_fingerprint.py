@@ -82,9 +82,10 @@ def run_bcftools_mpileup(bam: str, fasta: str, positions_file: str,
         bam
     ]
 
-    # Run call with genotype likelihoods
+    # Run call with genotype likelihoods (specify ploidy to avoid warning)
     call_cmd = [
         "bcftools", "call",
+        "--ploidy", "2",
         "-mv",
         "-Ov",
         "-o", output_vcf
@@ -94,7 +95,7 @@ def run_bcftools_mpileup(bam: str, fasta: str, positions_file: str,
     mpileup_proc = subprocess.Popen(
         mpileup_cmd,
         stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE
+        stderr=subprocess.DEVNULL  # Don't capture mpileup stderr to avoid pipe blocking
     )
     call_proc = subprocess.Popen(
         call_cmd,
