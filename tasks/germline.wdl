@@ -14,6 +14,20 @@ task FixBed {
     }
 }
 
+task CreateMitoBed {
+    input {
+        String prefix
+    }
+
+    command <<<
+        echo -e "MT\t1\t16569" > ~{prefix}.mito.bed
+    >>>
+
+    output {
+        File mito_bed = "~{prefix}.mito.bed"
+    }
+}
+
 task TargetBed {
     input {
         String prefix

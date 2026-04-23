@@ -36,7 +36,6 @@ workflow SingleWES {
 
     # 参数调整
     String ref_fasta_name = basename(fasta)
-    File mito_bed = "assets/mito.bed"
     String clinvar_version = '20260415'
 
     # bed 文件调整
@@ -100,12 +99,16 @@ workflow SingleWES {
             bed = FixBed.fixed_bed,
             threads = 8
     }
+    call GERMLINE.CreateMitoBed as CreateMitoBed {
+        input:
+            prefix = prefix
+    }
     call XAMDST.Xamdst as MtXamdst {
         input:
             prefix = prefix,
             bam = Markdup.markdup_bam,
             bai = Markdup.markdup_bai,
-            bed = mito_bed,
+            bed = CreateMitoBed.mito_bed,
             threads = 8
     }
     call GATK.CollectQCMetrics as CollectQCMetrics {
