@@ -97,7 +97,7 @@ task CNVKitReference {
     }
 
     command <<<
-        cnvkit.py reference -f ~{fasta} -o ~{prefix}.cnvkit.cnn \
+        cnvkit.py reference -f ~{ref_dir}/~{fasta} -o ~{prefix}.cnvkit.ref.cnn \
             ~{sep=" " target_coverages} \
             ~{sep=" " antitarget_coverages}
     >>>
