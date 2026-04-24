@@ -104,7 +104,7 @@ task QCReport {
         File gatk_metric
         File hs_metric
         File sry_result
-        File library_metric
+        File sambamba_stats
         Int sry_cutoff
     }
 
@@ -119,7 +119,8 @@ task QCReport {
             --metrics ~{gatk_metric} \
             --hs ~{hs_metric} \
             --sry ~{sry_result} \
-            --sry-cutoff ~{sry_cutoff}
+            --sry-cutoff ~{sry_cutoff} \
+            --sambamba-stats ~{sambamba_stats}
     >>>
 
     output {

@@ -142,8 +142,8 @@ workflow SingleWES {
             gatk_metric = CollectQCMetrics.summary,
             hs_metric = CollectQCMetrics.hs_metric,
             sry_result = SamtoolsSexCheck.SRY_count,
-            library_metric = CollectQCMetrics.complexity_metrics,
-            sry_cutoff = sry_sex_cutoff
+            sry_cutoff = sry_sex_cutoff,
+            sambamba_stats = Markdup.sambamba_stats
     }
 
     # SNP InDel 分析

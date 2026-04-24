@@ -118,9 +118,9 @@ task CollectQCMetrics {
         #     -O ~{prefix}.insertsize.txt \
         #     -H ~{prefix}.histogram.pdf
         
-        gatk EstimateLibraryComplexity \
-            -I ~{bam} \
-            -O ~{prefix}.complexity_metrics.txt
+        # gatk EstimateLibraryComplexity \
+        #     -I ~{bam} \
+        #     -O ~{prefix}.complexity_metrics.txt
 
         gatk CollectAlignmentSummaryMetrics \
             -I ~{bam} \
@@ -140,7 +140,6 @@ task CollectQCMetrics {
     >>>
 
     output {
-        File complexity_metrics = "~{prefix}.complexity_metrics.txt"
         File summary = "~{prefix}.metrics.txt"
         File hs_metric = "~{prefix}.hs.txt"
     }

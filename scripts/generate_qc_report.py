@@ -253,6 +253,60 @@ def parse_sry_count(sry_file: str, cutoff: int) -> dict:
     return result
 
 
+def parse_sambamba_stats(sambamba_file: str) -> dict:
+    """
+    从sambamba.stats文件提取文库复杂度指标
+
+    文件格式示例:
+        Total Reads:          92689731
+        Duplicate Reads:      22591790
+        Unique Reads:         70097941
+        PERCENT_DUPLICATION:  0.2437
+        --------------------------------------
+        ESTIMATED_LIBRARY_SIZE: 123456789
+
+    返回:
+        dict: 包含estimated_library_size, percent_duplication等
+    """
+    result = {}
+
+    with open(sambamba_file, 'r', encoding='utf-8') as f:
+        for line in f:
+            line = line.strip()
+            if ':' in line:
+                key, value = line.split(':', 1)
+                key = key.strip()
+                value = value.strip()
+
+                if key == 'Total Reads':
+                    try:
+                        result['total_reads'] = int(value)
+                    except ValueError:
+                        pass
+                elif key == 'Duplicate Reads':
+                    try:
+                        result['duplicate_reads'] = int(value)
+                    except ValueError:
+                        pass
+                elif key == 'Unique Reads':
+                    try:
+                        result['unique_reads'] = int(value)
+                    except ValueError:
+                        pass
+                elif key == 'PERCENT_DUPLICATION':
+                    try:
+                        result['percent_duplication'] = float(value)
+                    except ValueError:
+                        pass
+                elif key == 'ESTIMATED_LIBRARY_SIZE':
+                    try:
+                        result['estimated_library_size'] = int(float(value))
+                    except ValueError:
+                        pass
+
+    return result
+
+
 def parse_library_complexity(lc_file: str) -> dict:
     """
     从GATK EstimateLibraryComplexity输出文件提取文库复杂度指标
@@ -311,6 +365,7 @@ def main():
     parser.add_argument('--hs', help='hs.txt文件路径')
     parser.add_argument('--sry', help='SRY.count.txt文件路径')
     parser.add_argument('--library-complexity', help='GATK EstimateLibraryComplexity输出文件路径')
+    parser.add_argument('--sambamba-stats', help='sambamba.stats文件路径')
     args = parser.parse_args()
 
     # 初始化报表数据
@@ -323,7 +378,8 @@ def main():
         'metrics': {},
         'hs_metrics': {},
         'sry': {},
-        'library_complexity': {}
+        'library_complexity': {},
+        'sambamba': {}
     }
 
     # 解析各个输入文件
@@ -350,6 +406,9 @@ def main():
 
     if args.library_complexity:
         report['library_complexity'] = parse_library_complexity(args.library_complexity)
+
+    if args.sambamba_stats:
+        report['sambamba'] = parse_sambamba_stats(args.sambamba_stats)
 
     # 输出JSON报表
     with open(args.output, 'w', encoding='utf-8') as f:
