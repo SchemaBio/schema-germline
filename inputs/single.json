@@ -1,7 +1,7 @@
 {
     "SingleWES.prefix": "proband",
-    "SingleWES.read_1": "/mnt/data/test/202511_test_1.fq.gz",
-    "SingleWES.read_2": "/mnt/data/test/202511_test_2.fq.gz",
+    "SingleWES.read_1": "/mnt/data/test/202511_proband_ILMN_1.fq.gz",
+    "SingleWES.read_2": "/mnt/data/test/202511_proband_ILMN_2.fq.gz",
     "SingleWES.fasta": "/mnt/data/database/Homo_sapiens.GRCh37.dna.primary_assembly.fa",
     "SingleWES.bed": "/mnt/data/test/hg19_IDTv1.bed",
     "SingleWES.flank_size": 50,
