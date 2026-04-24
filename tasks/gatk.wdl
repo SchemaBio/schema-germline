@@ -98,6 +98,7 @@ task MarkDuplicates {
     }
 }
 
+# Xamdst有Insertsize统计，不再用GATK的
 task CollectQCMetrics {
     input {
         String prefix
@@ -112,10 +113,14 @@ task CollectQCMetrics {
     Int memory_gb = threads * 2
 
     command <<<
-        gatk CollectInsertSizeMetrics \
+        # gatk CollectInsertSizeMetrics \
+        #     -I ~{bam} \
+        #     -O ~{prefix}.insertsize.txt \
+        #     -H ~{prefix}.histogram.pdf
+        
+        gatk EstimateLibraryComplexity \
             -I ~{bam} \
-            -O ~{prefix}.insertsize.txt \
-            -H ~{prefix}.histogram.pdf
+            -O ~{prefix}.complexity_metrics.txt
 
         gatk CollectAlignmentSummaryMetrics \
             -I ~{bam} \
@@ -132,11 +137,10 @@ task CollectQCMetrics {
             -TI ~{prefix}.interval_list \
             -I ~{bam} \
             -O ~{prefix}.hs.txt
-
     >>>
 
     output {
-        File insertsizeFile = "~{prefix}.insertsize.txt"
+        File complexity_metrics = "~{prefix}.complexity_metrics.txt"
         File summary = "~{prefix}.metrics.txt"
         File hs_metric = "~{prefix}.hs.txt"
     }

@@ -92,3 +92,37 @@ task FingerPrint {
         docker: "docker.schema-bio.com/schemabio/germline:v0.0.5"
     }
 }
+
+# 质量统计
+task QCReport {
+    input {
+        String prefix
+        File fastp_stats
+        File xamdst_json
+        File mt_xamdst_json
+        File fingerprint_result
+        File gatk_metric
+        File hs_metric
+        File sry_result
+        File library_metric
+        Int sry_cutoff
+    }
+
+    command <<<
+        python /opt/schema-germline/scripts/generate_qc_report.py \
+            --sample ~{prefix} \
+            --output ~{prefix}.qc.json \
+            --fastp ~{fastp_stats} \
+            --xamdst ~{xamdst_json} \
+            --mt-xamdst ~{mt_xamdst_json} \
+            --fingerprint ~{fingerprint_result} \
+            --metrics ~{gatk_metric} \
+            --hs ~{hs_metric} \
+            --sry ~{sry_result} \
+            --sry-cutoff ~{sry_cutoff}
+    >>>
+
+    output {
+        File qc_result = "~{prefix}.qc.json"
+    }
+}

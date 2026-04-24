@@ -103,9 +103,10 @@ workflow SingleWES {
         input:
             prefix = prefix
     }
+    String mt_xamdst_prefix = "~{prefix}.mt"
     call XAMDST.Xamdst as MtXamdst {
         input:
-            prefix = prefix,
+            prefix = mt_xamdst_prefix,
             bam = Markdup.markdup_bam,
             bai = Markdup.markdup_bai,
             bed = CreateMitoBed.mito_bed,
@@ -130,6 +131,19 @@ workflow SingleWES {
             assembly = assembly,
             ref_dir = ref_dir,
             threads = 4
+    }
+    call GERMLINE.QCReport as QCReport {
+        input:
+            prefix = prefix,
+            fastp_stats = Fastp.json_report,
+            xamdst_json = Xamdst.xamdst_report,
+            mt_xamdst_json = MtXamdst.xamdst_report,
+            fingerprint_result = FingerPrint.fingerprint_json,
+            gatk_metric = CollectQCMetrics.summary,
+            hs_metric = CollectQCMetrics.hs_metric,
+            sry_result = SamtoolsSexCheck.SRY_count,
+            library_metric = CollectQCMetrics.complexity_metrics,
+            sry_cutoff = sry_sex_cutoff
     }
 
     # SNP InDel 分析
