@@ -7,6 +7,17 @@ import "tasks/cnvkit.wdl" as CNVKIT
 import "tasks/bwamem.wdl" as BWAMEM
 import "tasks/sambamba.wdl" as SAMBAMBA
 
+# 输出类型定义
+struct PipelineSummary {
+    String prefix
+    String status
+    String pipeline
+    String version
+    File reference
+    Int number_of_samples
+    Array[String] sample_names
+}
+
 workflow CNVBaseline {
     input {
         String prefix
@@ -52,6 +63,10 @@ workflow CNVBaseline {
     }
 
     scatter (i in range(length(read_1))) {
+
+        String raw_filename = basename(read_1[i])
+        String clean_name = sub(raw_filename, "\\.fastq\\.gz$|\\.fq\\.gz$", "")
+
         call FASTP.Fastp as Fastp {
             input:
                 prefix = "~{prefix}_sample~{i}",
@@ -99,13 +114,16 @@ workflow CNVBaseline {
     }
 
     output {
-        File summary = write_json({
-            "prefix": prefix,
-            "status": "Success",
-            "pipeline": "CNV_Baseline",
-            "version": "v0.0.1",
-            "reference": CNVKitReference.reference,
-            "number_of_samples": num_samples
-        })
+        File summary = write_json(
+            PipelineSummary {
+                prefix: prefix,
+                status: "Success",
+                pipeline: "CNV_Baseline",
+                version: "v0.0.1",
+                reference: CNVKitReference.reference,
+                number_of_samples: num_samples,
+                sample_names: clean_name
+            }
+        )
     }
 }
