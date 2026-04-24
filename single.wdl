@@ -17,6 +17,28 @@ import "tasks/expansionhunter.wdl" as EXPANSIONHUNTER
 import "tasks/stranger.wdl" as STRANGER
 import "tasks/automap.wdl" as AUTOMAP
 
+# 输出类型定义
+struct PipelineSummary {
+    String prefix
+    String status
+    String pipeline
+    String version
+    File bam
+    File bai
+    File bed
+    File qc_result
+    File vcf_raw
+    File snp_indel
+    File mt
+    File cnv_region
+    File cnv_exon
+    File cnv_raw
+    File str
+    File mei
+    File upd
+    File roh
+}
+
 workflow SingleWES {
     input {
         String prefix
@@ -295,4 +317,29 @@ workflow SingleWES {
             vcf = ExpansionHunter.str_vcf,
             assembly = assembly
     }
+
+    # output {
+    #     File summary = write_json(
+    #         PipelineSummary {
+    #             prefix: prefix,
+    #             status: "Success",
+    #             pipeline: "WES_Single",
+    #             version: "v0.0.1",
+    #             bam: Markdup.markdup_bam,
+    #             bai: Markdup.markdup_bai,
+    #             bed: FixBed.fixed_bed,
+    #             qc_result: QCReport.qc_result,
+    #             vcf_raw: LeftAlignAndTrimVariants.left_vcf,
+    #             snp_indel
+    #             mt
+    #             cnv_region
+    #             cnv_exon
+    #             cnv_raw: CNVKitFix.cnvkit_cns,
+    #             str
+    #             mei
+    #             upd
+    #             roh
+    #         }
+    #     )
+    # }
 }
