@@ -97,4 +97,15 @@ workflow CNVBaseline {
             antitarget_coverages = CNVKitCoverage.antitarget_coverage,
             ref_dir = ref_dir
     }
+
+    output {
+        File summary = write_json({
+            "prefix": prefix,
+            "status": "Success",
+            "pipeline": "CNV_Baseline",
+            "version": "v0.0.1",
+            "reference": CNVKitReference.reference,
+            "number_of_samples": num_samples
+        })
+    }
 }
