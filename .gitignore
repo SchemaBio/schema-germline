@@ -2,3 +2,5 @@
 *.pyc
 scripts/test/
 __pycache__/
+Gencode.GRCh37.cnvkit.target.bed
+Gencode.GRCh38.cnvkit.target.bed
