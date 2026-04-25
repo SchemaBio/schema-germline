@@ -164,3 +164,34 @@ task STRReport {
         File str_result = "~{prefix}.str.txt"
     }
 }
+
+# ROH突变结果整理
+## GenCC版本: 20260425
+task ROHReport {
+    input {
+        String prefix
+        File automap_report
+        String assembly
+    }
+
+    command <<<
+        if [ "~{assembly}" == "GRCh38" ]; then
+            bed=/opt/schema-germline/assets/Gencode.GRCh38.cnvkit.target.bed
+        elif [ "~{assembly}" == "GRCh37" ]; then
+            bed=/opt/schema-germline/assets/Gencode.GRCh37.cnvkit.target.bed
+        else
+            echo "Unsupported assembly: ~{assembly}" >&2
+            exit 1
+        fi
+
+        python /opt/schema-germline/scripts/roh_report.py \
+            -i ~{automap_report} \
+            -o ~{prefix}.roh.anno.txt \
+            -g /opt/schema-germline/assets/gencc-submissions.xlsx \
+            -b ${bed}
+    >>>
+
+    output {
+        File roh_result = "~{prefix}.roh.anno.txt"
+    }
+}

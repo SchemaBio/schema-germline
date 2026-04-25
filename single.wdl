@@ -35,7 +35,6 @@ struct PipelineSummary {
     File cnv_raw
     File str
     File mei
-    File upd
     File roh
 }
 
@@ -275,6 +274,12 @@ workflow SingleWES {
             assembly = assembly,
             threads = 4
     }
+    call GERMLINE.ROHReport as ROHReport {
+        input:
+            prefix = prefix
+            automap_report = AutoMap.combined_tsv,
+            assembly = assembly
+    }
 
     # 转座子分析
     call TIEAWES.TIEA_WES as TIEA_WES {
@@ -345,10 +350,9 @@ workflow SingleWES {
                 cnv_region
                 cnv_exon
                 cnv_raw: CNVKitFix.cnvkit_cns,
-                str: STRReport.str_result
-                mei: MEIReport.mei_result
-                upd
-                roh
+                str: STRReport.str_result,
+                mei: MEIReport.mei_result,
+                roh: ROHReport.roh_result
             }
         )
     }
