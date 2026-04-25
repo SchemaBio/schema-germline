@@ -1,3 +1,4 @@
 .claude/
 *.pyc
 scripts/test/
+__pycache__/

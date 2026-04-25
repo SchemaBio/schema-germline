@@ -436,6 +436,33 @@ def format_hgvs_c(hgvs_c):
     return hgvs_c
 
 
+def extract_dbsnp_id(existing_var):
+    """Extract dbSNP rs ID from Existing_variation field
+
+    Example: rs2124593767&COSV62293932 -> rs2124593767
+             rs123&rs456 -> rs123&rs456 (keep all rs IDs)
+             COSV123 -> . (no rs ID)
+
+    Args:
+        existing_var: Existing_variation value from VEP CSQ
+
+    Returns:
+        Extracted rs IDs joined with '&' or '.' if no rs ID found
+    """
+    if not existing_var or existing_var == '.' or existing_var == '':
+        return '.'
+
+    # Split by '&' to handle multiple IDs
+    ids = existing_var.split('&')
+
+    # Filter for rs IDs (start with 'rs')
+    rs_ids = [id for id in ids if id.startswith('rs')]
+
+    if rs_ids:
+        return '&'.join(rs_ids)
+    return '.'
+
+
 def format_hgvs_p(hgvs_p):
     """Remove NP prefix from HGVS_p
 
@@ -643,7 +670,7 @@ def generate_report(records, output_path, sex='female', sample_names=None):
         'AlphaMissense_AM',
         'AlphaMissense_AMC',
         'HGNC_ID',
-        'Existing_Variation',
+        'dbSNP',
         'MAX_AF',
         'GenCC_moi_curie',
         'GenCC_disease_title',
@@ -744,6 +771,7 @@ def generate_report(records, output_path, sex='female', sample_names=None):
                 clinvar_star = get_clinvar_field(best_csq, 'CLNSTAR')
                 hgnc_id = best_csq.get('HGNC_ID', '.')
                 existing_var = best_csq.get('Existing_variation', '.')
+                dbsnp_id = extract_dbsnp_id(existing_var)
                 max_af = best_csq.get('MAX_AF', '.')
                 gnomad_af = format_gnomad_af(best_csq)
                 gnomad_af_eas = format_gnomad_af_eas(best_csq)
@@ -779,6 +807,7 @@ def generate_report(records, output_path, sex='female', sample_names=None):
                 clinvar_star = '.'
                 hgnc_id = '.'
                 existing_var = '.'
+                dbsnp_id = '.'
                 max_af = '.'
                 gnomad_af = '.'
                 gnomad_af_eas = '.'
@@ -838,7 +867,7 @@ def generate_report(records, output_path, sex='female', sample_names=None):
                 alpha_missense_am,
                 alpha_missense_amc,
                 hgnc_id,
-                existing_var,
+                dbsnp_id,
                 max_af,
                 gencc_moi_curie,
                 gencc_disease_title,
