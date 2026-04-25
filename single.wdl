@@ -31,7 +31,7 @@ struct PipelineSummary {
     File snp_indel
     File mt
     File cnv_region
-    File cnv_exon
+    File cnv_gene
     File cnv_raw
     File str
     File mei
@@ -209,6 +209,13 @@ workflow SingleWES {
             clinvar_version = clinvar_version,
             ref_dir = ref_dir
     }
+    call GERMLINE.SNPInDelReport as SNPInDelReport {
+        input:
+            prefix = prefix,
+            vep_vcf = VEP.out_vcf,
+            sry_file = SamtoolsSexCheck.SRY_count,
+            sex_cutoff = sry_sex_cutoff
+    }
 
     # 线粒体分析
     call GATK.MitochondrialMutect2 as MitochondrialMutect2 {
@@ -345,10 +352,10 @@ workflow SingleWES {
                 bed: FixBed.fixed_bed,
                 qc_result: QCReport.qc_result,
                 vcf_raw: LeftAlignAndTrimVariants.left_vcf,
-                snp_indel
+                snp_indel: SNPInDelReport.snp_indel_result,
                 mt
                 cnv_region
-                cnv_exon
+                cnv_gene
                 cnv_raw: CNVKitFix.cnvkit_cns,
                 str: STRReport.str_result,
                 mei: MEIReport.mei_result,

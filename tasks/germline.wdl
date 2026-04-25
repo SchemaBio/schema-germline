@@ -52,9 +52,6 @@ task TargetBed {
         File target_bed = "~{prefix}.target.bed"
     }
 
-    runtime {
-        docker: "docker.schema-bio.com/schemabio/germline:v0.0.5"
-    }
 }
 
 task FingerPrint {
@@ -89,7 +86,6 @@ task FingerPrint {
 
     runtime {
         cpu: threads
-        docker: "docker.schema-bio.com/schemabio/germline:v0.0.5"
     }
 }
 
@@ -195,3 +191,43 @@ task ROHReport {
         File roh_result = "~{prefix}.roh.anno.txt"
     }
 }
+
+task SNPInDelReport {
+    input {
+        String prefix
+        File vep_vcf
+        File sry_file
+        Int sex_cutoff
+        String? sample_names  # Optional: comma-separated sample names (e.g., "proband,father,mother")
+    }
+
+    command <<<
+        # Determine sex based on SRY reads count
+        sex="female"
+        number=$(cat ~{sry_file})
+        if [ $number -gt ~{sex_cutoff} ]; then
+            sex="male"
+        else
+            sex="female"
+        fi
+
+        # Set sample names (default to prefix if not provided)
+        if [ -z "~{sample_names}" ]; then
+            sample_names_arg="-n ~{prefix}"
+        else
+            sample_names_arg="-n ~{sample_names}"
+        fi
+
+        python /opt/schema-germline/scripts/vep_report.py \
+            -i ~{vep_vcf} \
+            -o ~{prefix}.snv_indel.txt \
+            -t /opt/schema-germline/assets/transcripts.json \
+            --sex ${sex} \
+            ${sample_names_arg}
+    >>>
+
+    output {
+        File snp_indel_result = "~{prefix}.snv_indel.txt"
+    }
+
+} 
