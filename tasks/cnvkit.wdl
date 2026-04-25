@@ -6,21 +6,14 @@ task CNVKitFix {
         File target_coverage
         File antitarget_coverage
         File reference
-        String segmentation_method = "hmm-germline"
     }
 
     command <<<
         cnvkit.py fix ~{target_coverage} ~{antitarget_coverage} ~{reference} -o ~{prefix}.cnvkit.cnr
-        cnvkit.py call ~{prefix}.cnvkit.cnr -o ~{prefix}.cnvkit.cns
-        cnvkit.py segment ~{prefix}.cnvkit.cnr -o ~{prefix}.cnvkit.seg.cnr -m ~{segmentation_method}
-        cnvkit.py call ~{prefix}.cnvkit.seg.cnr -o ~{prefix}.cnvkit.seg.cns
     >>>
 
     output {
         File cnvkit_cnr = "~{prefix}.cnvkit.cnr"
-        File cnvkit_cns = "~{prefix}.cnvkit.cns"
-        File cnvkit_seg_cnr = "~{prefix}.cnvkit.seg.cnr"
-        File cnvkit_seg_cns = "~{prefix}.cnvkit.seg.cns"
     }
 
     runtime {

@@ -8,7 +8,6 @@
     "SingleWES.assembly": "GRCh37",
     "SingleWES.ref_dir": "/mnt/data/database",
     "SingleWES.cnvkit_reference": "/mnt/data/test/reference.cnvkit.cnn",
-    "SingleWES.cnvkit_segmentation_method": "cbs",
     "SingleWES.sry_sex_cutoff": 20,
     "SingleWES.cache_dir": "/mnt/data/database/vep",
     "SingleWES.schema_bundle": "/mnt/data/database/schema_bundle"

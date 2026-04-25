@@ -48,7 +48,6 @@ workflow SingleWES {
         Int flank_size
         String assembly
         File cnvkit_reference
-        String cnvkit_segmentation_method
         Int sry_sex_cutoff
         Directory ref_dir
         Directory cache_dir
@@ -239,6 +238,11 @@ workflow SingleWES {
             clinvar_version = clinvar_version,
             ref_dir = ref_dir
     }
+    call GERMLINE.MTReport as MTReport {
+        input:
+            prefix = prefix,
+            mt_vep_vcf = MtVEP.out_vcf
+    }
 
     # CNV分析
     call CNVKIT.CNVKitAntitarget as CNVKitAntitarget {
@@ -263,8 +267,7 @@ workflow SingleWES {
             prefix = prefix,
             target_coverage = CNVKitCoverage.target_coverage,
             antitarget_coverage = CNVKitCoverage.antitarget_coverage,
-            reference = cnvkit_reference,
-            segmentation_method = cnvkit_segmentation_method
+            reference = cnvkit_reference
     }
 
     # LOH：杂合性缺失
@@ -353,7 +356,7 @@ workflow SingleWES {
                 qc_result: QCReport.qc_result,
                 vcf_raw: LeftAlignAndTrimVariants.left_vcf,
                 snp_indel: SNPInDelReport.snp_indel_result,
-                mt
+                mt: MTReport.mt_result,
                 cnv_region
                 cnv_gene
                 cnv_raw: CNVKitFix.cnvkit_cns,

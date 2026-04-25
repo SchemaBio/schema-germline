@@ -221,6 +221,7 @@ task SNPInDelReport {
         python /opt/schema-germline/scripts/vep_report.py \
             -i ~{vep_vcf} \
             -o ~{prefix}.snv_indel.txt \
+            --gencc /opt/schema-germline/assets/gencc-submissions.xlsx \
             -t /opt/schema-germline/assets/transcripts.json \
             --sex ${sex} \
             ${sample_names_arg}
@@ -228,6 +229,25 @@ task SNPInDelReport {
 
     output {
         File snp_indel_result = "~{prefix}.snv_indel.txt"
+    }
+
+} 
+
+task MTReport {
+    input {
+        String prefix
+        File mt_vep_vcf
+    }
+
+    command <<<
+        python /opt/schema-germline/scripts/mt_report.py \
+            -i ~{vep_mt_vep_vcfvcf} \
+            -o ~{prefix}.mt_report.txt \
+            -m /opt/schema-germline/assets/mitophen.json
+    >>>
+
+    output {
+        File mt_result = "~{prefix}.mt_report.txt"
     }
 
 } 

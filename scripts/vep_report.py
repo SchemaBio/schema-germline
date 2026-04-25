@@ -13,13 +13,20 @@ import json
 import argparse
 from pathlib import Path
 from collections import defaultdict
+import pandas as pd
 
 
 # Path to transcripts configuration file
 TRANSCRIPTS_FILE = Path(__file__).parent.parent / 'assets' / 'transcripts.json'
 
+# Path to GenCC submissions database
+GENCC_FILE = Path(__file__).parent.parent / 'assets' / 'gencc-submissions.xlsx'
+
 # Global transcripts lookup cache
 _transcripts_cache = None
+
+# Global GenCC lookup cache
+_gencc_cache = None
 
 
 def load_transcripts():
@@ -32,6 +39,73 @@ def load_transcripts():
         except (FileNotFoundError, json.JSONDecodeError):
             _transcripts_cache = {}
     return _transcripts_cache
+
+
+def load_gencc():
+    """Load GenCC submissions database and build gene lookup index
+
+    Returns a dict mapping gene_symbol to aggregated fields:
+    - moi_curie: joined with '|'
+    - disease_title: joined with '|'
+    - moi_title: joined with '|'
+    - disease_original_curie: joined with '|'
+    - submitted_as_assertion_criteria_url: joined with '|'
+
+    Multiple mappings for a gene are deduplicated and joined with '|'
+    """
+    global _gencc_cache
+    if _gencc_cache is None:
+        try:
+            df = pd.read_excel(GENCC_FILE)
+
+            # Group by gene_symbol and aggregate fields
+            _gencc_cache = {}
+
+            for gene in df['gene_symbol'].unique():
+                gene_rows = df[df['gene_symbol'] == gene]
+
+                # Aggregate each field, deduplicate and join with '|'
+                def aggregate_field(field_name):
+                    values = gene_rows[field_name].dropna().unique()
+                    # Convert to string and filter empty values
+                    str_values = [str(v).strip() for v in values if str(v).strip() and str(v) != 'nan']
+                    # Deduplicate
+                    unique_values = list(set(str_values))
+                    return '|'.join(sorted(unique_values)) if unique_values else '.'
+
+                _gencc_cache[gene] = {
+                    'moi_curie': aggregate_field('moi_curie'),
+                    'disease_title': aggregate_field('disease_title'),
+                    'moi_title': aggregate_field('moi_title'),
+                    'disease_original_curie': aggregate_field('disease_original_curie'),
+                    'submitted_as_assertion_criteria_url': aggregate_field('submitted_as_assertion_criteria_url')
+                }
+        except FileNotFoundError:
+            _gencc_cache = {}
+    return _gencc_cache
+
+
+def get_gencc_info(gene_symbol):
+    """Get GenCC information for a gene symbol
+
+    Args:
+        gene_symbol: Gene symbol (e.g., 'BRCA1')
+
+    Returns:
+        dict with fields: moi_curie, disease_title, moi_title,
+                         disease_original_curie, submitted_as_assertion_criteria_url
+        Returns default '.' values if gene not found
+    """
+    gencc = load_gencc()
+    if gene_symbol and gene_symbol != '.' and gene_symbol in gencc:
+        return gencc[gene_symbol]
+    return {
+        'moi_curie': '.',
+        'disease_title': '.',
+        'moi_title': '.',
+        'disease_original_curie': '.',
+        'submitted_as_assertion_criteria_url': '.'
+    }
 
 
 def strip_transcript_version(transcript_id):
@@ -570,7 +644,12 @@ def generate_report(records, output_path, sex='female', sample_names=None):
         'AlphaMissense_AMC',
         'HGNC_ID',
         'Existing_Variation',
-        'MAX_AF'
+        'MAX_AF',
+        'GenCC_moi_curie',
+        'GenCC_disease_title',
+        'GenCC_moi_title',
+        'GenCC_disease_original_curie',
+        'GenCC_assertion_criteria_url'
     ]
 
     headers = base_headers + sample_headers + annotation_headers
@@ -677,6 +756,13 @@ def generate_report(records, output_path, sex='female', sample_names=None):
                 evo_score_an = evaluate_evoscore_annotation(evo_score)
                 alpha_missense_am = best_csq.get('AlphaMissense_AM', '.')
                 alpha_missense_amc = best_csq.get('AlphaMissense_AMC', '.')
+                # GenCC fields
+                gencc_info = get_gencc_info(gene)
+                gencc_moi_curie = gencc_info['moi_curie']
+                gencc_disease_title = gencc_info['disease_title']
+                gencc_moi_title = gencc_info['moi_title']
+                gencc_disease_original_curie = gencc_info['disease_original_curie']
+                gencc_assertion_criteria_url = gencc_info['submitted_as_assertion_criteria_url']
             else:
                 gene = '.'
                 transcript = '.'
@@ -705,6 +791,11 @@ def generate_report(records, output_path, sex='female', sample_names=None):
                 evo_score_an = '.'
                 alpha_missense_am = '.'
                 alpha_missense_amc = '.'
+                gencc_moi_curie = '.'
+                gencc_disease_title = '.'
+                gencc_moi_title = '.'
+                gencc_disease_original_curie = '.'
+                gencc_assertion_criteria_url = '.'
 
             row = [
                 record['chrom'],
@@ -748,7 +839,12 @@ def generate_report(records, output_path, sex='female', sample_names=None):
                 alpha_missense_amc,
                 hgnc_id,
                 existing_var,
-                max_af
+                max_af,
+                gencc_moi_curie,
+                gencc_disease_title,
+                gencc_moi_title,
+                gencc_disease_original_curie,
+                gencc_assertion_criteria_url
             ])
 
             f.write('\t'.join(row) + '\n')
@@ -836,6 +932,10 @@ Example usage:
                         default=None,
                         help='Transcripts configuration file (default: assets/transcripts.json)')
 
+    parser.add_argument('--gencc',
+                        default=None,
+                        help='GenCC submissions database file (default: assets/gencc-submissions.xlsx)')
+
     parser.add_argument('--sex',
                         choices=['male', 'female'],
                         default='female',
@@ -866,12 +966,19 @@ Example usage:
         global TRANSCRIPTS_FILE
         TRANSCRIPTS_FILE = Path(args.transcripts)
 
+    # Handle GenCC file
+    if args.gencc:
+        global GENCC_FILE
+        GENCC_FILE = Path(args.gencc)
+
     print(f"Input VCF: {vcf_path}")
     print(f"Output report: {output_path}")
     print(f"Sample names: {', '.join(sample_names)}")
     print(f"Sample sex: {args.sex}")
     if args.transcripts:
         print(f"Transcripts file: {TRANSCRIPTS_FILE}")
+    if args.gencc:
+        print(f"GenCC file: {GENCC_FILE}")
 
     if not vcf_path.exists():
         print(f"Error: VCF file not found: {vcf_path}")
