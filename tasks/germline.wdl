@@ -241,13 +241,60 @@ task MTReport {
 
     command <<<
         python /opt/schema-germline/scripts/mt_report.py \
-            -i ~{vep_mt_vep_vcfvcf} \
+            -i ~{mt_vep_vcf} \
             -o ~{prefix}.mt_report.txt \
             -m /opt/schema-germline/assets/mitophen.json
     >>>
 
     output {
         File mt_result = "~{prefix}.mt_report.txt"
+    }
+
+} 
+
+task CNVGene {
+    input {
+        String prefix
+        File cnv_cnr
+        Float cnv_del_threshold = 1.5
+        Float cnv_dup_threshold = 2.5
+    }
+
+    command <<<
+        python /opt/schema-germline/scripts/gene_level_segment.py \
+            -i ~{cnv_cnr} \
+            -o ~{prefix}.cnv.gene.txt \
+            --del-threshold ~{cnv_del_threshold} \
+            --dup-threshold ~{cnv_dup_threshold}
+    >>>
+
+    output {
+        File cnv_result = "~{prefix}.cnv.gene.txt"
+    }
+
+}
+
+task CNVRegion {
+    input {
+        String prefix
+        File cnv_cnr
+        Int bin_size
+        Float cnv_del_threshold = 1.5
+        Float cnv_dup_threshold = 2.5
+    }
+
+    command <<<
+        python /opt/schema-germline/scripts/merge_bins_for_cnv.py \
+            -i ~{cnv_cnr} \
+            -o ~{prefix}.cnv.region.txt \
+            --del-threshold ~{cnv_del_threshold} \
+            --dup-threshold ~{cnv_dup_threshold} \
+            --bin-count ~{bin_size} \
+            --keep-antitarget
+    >>>
+
+    output {
+        File cnv_result = "~{prefix}.cnv.region.txt"
     }
 
 } 

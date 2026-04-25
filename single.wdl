@@ -16,6 +16,7 @@ import "tasks/cnvkit.wdl" as CNVKIT
 import "tasks/expansionhunter.wdl" as EXPANSIONHUNTER
 import "tasks/stranger.wdl" as STRANGER
 import "tasks/automap.wdl" as AUTOMAP
+import "tasks/cnvanno.wdl" as CNVANNO
 
 # 输出类型定义
 struct PipelineSummary {
@@ -45,10 +46,13 @@ workflow SingleWES {
         File read_2
         String fasta
         File bed
-        Int flank_size
+        Int flank_size = 50
         String assembly
         File cnvkit_reference
-        Int sry_sex_cutoff
+        Int sry_sex_cutoff = 30
+        Int cnv_bin_size = 20000
+        Float cnv_dup_threshold = 2.5
+        Float cnv_del_threshold = 1.5
         Directory ref_dir
         Directory cache_dir
         Directory schema_bundle
@@ -269,6 +273,35 @@ workflow SingleWES {
             antitarget_coverage = CNVKitCoverage.antitarget_coverage,
             reference = cnvkit_reference
     }
+    call GERMLINE.CNVGene as CNVGene {
+        input:
+            prefix = prefix,
+            cnv_cnr = CNVKitFix.cnvkit_cnr,
+            cnv_del_threshold = cnv_del_threshold,
+            cnv_dup_threshold = cnv_dup_threshold
+    }
+    call GERMLINE.CNVRegion as CNVRegion {
+        input:
+            prefix = prefix,
+            cnv_cnr = CNVKitFix.cnvkit_cnr,
+            cnv_del_threshold = cnv_del_threshold,
+            cnv_dup_threshold = cnv_dup_threshold,
+            bin_size = cnv_bin_size
+    }
+    String cnv_gene_prefix = "~{prefix}.gene"
+    call CNVANNO.CNVAnno as CNVAnnoGene {
+        input:
+            prefix = cnv_gene_prefix,
+            cnv_bed = CNVGene.cnv_result,
+            assembly = assembly
+    }
+    String cnv_region_prefix = "~{prefix}.region"
+    call CNVANNO.CNVAnno as CNVAnnoRegion {
+        input:
+            prefix = cnv_region_prefix,
+            cnv_bed = CNVAnnoGene.cnv_result,
+            assembly = assembly
+    }
 
     # LOH：杂合性缺失
     # ROH：连续纯合区域，可能提示隐性遗传病位点
@@ -357,9 +390,9 @@ workflow SingleWES {
                 vcf_raw: LeftAlignAndTrimVariants.left_vcf,
                 snp_indel: SNPInDelReport.snp_indel_result,
                 mt: MTReport.mt_result,
-                cnv_region
-                cnv_gene
-                cnv_raw: CNVKitFix.cnvkit_cns,
+                cnv_region: CNVAnnoRegion.cnv_anno_result,
+                cnv_gene: CNVAnnoGene.cnv_anno_result,
+                cnv_raw: CNVKitFix.cnvkit_cnr,
                 str: STRReport.str_result,
                 mei: MEIReport.mei_result,
                 roh: ROHReport.roh_result

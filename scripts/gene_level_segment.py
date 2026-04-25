@@ -462,43 +462,61 @@ def calculate_cn(log2_mean: float, ploidy: int = 2) -> float:
     return max(0.0, round(cn, 2))
 
 
-def classify_cnv(
-    log2_mean: float,
-    bin_count: int,
-    log2_std: float,
-    del_threshold: float,
-    dup_threshold: float
-) -> tuple[str, str, float]:
+def cn_to_log2(cn: float, ploidy: int = 2) -> float:
     """
-    Classify CNV type based on log2 value and thresholds.
+    Convert copy number to log2 value.
 
-    Args:
-        log2_mean: Mean log2 ratio
-        bin_count: Number of bins covering the gene
-        log2_std: Standard deviation of log2 values
-        del_threshold: Log2 threshold for calling deletion (negative)
-        dup_threshold: Log2 threshold for calling duplication (positive)
+    Formula: log2 = log(cn / ploidy)
+
+    For diploid (ploidy=2):
+    - CN=0: undefined (practically -infinity)
+    - CN=1: log2 ≈ -0.585
+    - CN=2: log2 = 0
+    - CN=3: log2 ≈ 0.585
+    - CN=4: log2 ≈ 1.0
 
     Returns:
-        Tuple of (cnv_call, confidence, cn)
+        Log2 value as float
+    """
+    if cn <= 0:
+        return -10.0  # Very negative value for CN=0
+    return math.log(cn / ploidy, 2)
+
+
+def classify_cnv(
+    cn_value: float,
+    bin_count: int,
+    log2_std: float,
+    cn_del_threshold: float,
+    cn_dup_threshold: float
+) -> tuple[str, str]:
+    """
+    Classify CNV type based on CN value and thresholds.
+
+    Args:
+        cn_value: Estimated copy number
+        bin_count: Number of bins covering the gene
+        log2_std: Standard deviation of log2 values
+        cn_del_threshold: CN threshold for calling deletion (e.g., 1.5)
+        cn_dup_threshold: CN threshold for calling duplication (e.g., 2.5)
+
+    Returns:
+        Tuple of (cnv_call, confidence)
 
     cnv_call:
-    - DEL: log2 < del_threshold
-    - DUP: log2 > dup_threshold
+    - DEL: CN < cn_del_threshold
+    - DUP: CN > cn_dup_threshold
     - Normal: otherwise
 
     Confidence levels:
-    - HIGH: log2 strongly deviates, low std, many bins
+    - HIGH: CN strongly deviates, low std, many bins
     - MEDIUM: moderate deviation
     - LOW: borderline values, high variance, few bins
     """
-    # Calculate copy number
-    cn = calculate_cn(log2_mean)
-
-    # Base classification based on thresholds
-    if log2_mean < del_threshold:
+    # Base classification based on CN thresholds
+    if cn_value < cn_del_threshold:
         cnv_call = "DEL"
-    elif log2_mean > dup_threshold:
+    elif cn_value > cn_dup_threshold:
         cnv_call = "DUP"
     else:
         cnv_call = "Normal"
@@ -508,23 +526,23 @@ def classify_cnv(
 
     # Distance from threshold contribution
     if cnv_call == "DEL":
-        distance = abs(log2_mean - del_threshold)
-        if distance > 0.3:
+        distance = cn_del_threshold - cn_value
+        if distance > 0.5:
             confidence_score += 2
-        elif distance > 0.15:
+        elif distance > 0.25:
             confidence_score += 1
     elif cnv_call == "DUP":
-        distance = abs(log2_mean - dup_threshold)
-        if distance > 0.2:
+        distance = cn_value - cn_dup_threshold
+        if distance > 0.5:
             confidence_score += 2
-        elif distance > 0.1:
+        elif distance > 0.25:
             confidence_score += 1
     else:
         # Normal: high confidence if clearly in normal range
-        min_dist = min(abs(log2_mean - del_threshold), abs(log2_mean - dup_threshold))
-        if min_dist > 0.2:
+        min_dist = min(cn_value - cn_del_threshold, cn_dup_threshold - cn_value)
+        if min_dist > 0.3:
             confidence_score += 2
-        elif min_dist > 0.1:
+        elif min_dist > 0.15:
             confidence_score += 1
 
     # Variance contribution (low variance = higher confidence)
@@ -547,15 +565,15 @@ def classify_cnv(
     else:
         confidence = "LOW"
 
-    return cnv_call, confidence, cn
+    return cnv_call, confidence
 
 
 def segment_to_gene_cnv(
     segments: list[Segment],
     bins: list[Bin],
     chromosome: str,
-    del_threshold: float = -0.4,
-    dup_threshold: float = 0.3
+    cn_del_threshold: float = 1.5,
+    cn_dup_threshold: float = 2.5
 ) -> list[GeneCNV]:
     """
     Map CBS segments to genes and calculate gene-level CNV statistics.
@@ -568,8 +586,8 @@ def segment_to_gene_cnv(
         segments: List of CBS segments
         bins: List of Bin objects
         chromosome: Chromosome being processed
-        del_threshold: Log2 threshold for calling deletion
-        dup_threshold: Log2 threshold for calling duplication
+        cn_del_threshold: CN threshold for calling deletion (CN < threshold)
+        cn_dup_threshold: CN threshold for calling duplication (CN > threshold)
     """
     # Group bins by gene
     gene_bins = defaultdict(list)
@@ -652,10 +670,13 @@ def segment_to_gene_cnv(
         else:
             p_value = 1.0
 
-        # Classify CNV with thresholds
-        cnv_call, confidence, cn = classify_cnv(
-            log2_weighted_mean, len(gene_bins_list), log2_std,
-            del_threshold, dup_threshold
+        # Calculate CN from weighted mean log2
+        cn = calculate_cn(log2_weighted_mean)
+
+        # Classify CNV with CN thresholds
+        cnv_call, confidence = classify_cnv(
+            cn, len(gene_bins_list), log2_std,
+            cn_del_threshold, cn_dup_threshold
         )
 
         gene_cnv = GeneCNV(
@@ -719,8 +740,8 @@ def run_cbs_segmentation(
 def gene_level_cnv(
     bins: list[Bin],
     segments: dict[str, list[Segment]],
-    del_threshold: float = -0.4,
-    dup_threshold: float = 0.3
+    cn_del_threshold: float = 1.5,
+    cn_dup_threshold: float = 2.5
 ) -> list[GeneCNV]:
     """
     Map segments to genes and generate gene-level CNV calls.
@@ -728,8 +749,8 @@ def gene_level_cnv(
     Args:
         bins: List of Bin objects
         segments: Dictionary mapping chromosome to segments
-        del_threshold: Log2 threshold for calling deletion
-        dup_threshold: Log2 threshold for calling duplication
+        cn_del_threshold: CN threshold for calling deletion (CN < threshold)
+        cn_dup_threshold: CN threshold for calling duplication (CN > threshold)
     """
     # Group bins by chromosome
     chrom_bins = defaultdict(list)
@@ -741,7 +762,7 @@ def gene_level_cnv(
         chrom_segments = segments.get(chrom, [])
         gene_cnvs = segment_to_gene_cnv(
             chrom_segments, chrom_bin_list, chrom,
-            del_threshold, dup_threshold
+            cn_del_threshold, cn_dup_threshold
         )
         results.extend(gene_cnvs)
 
@@ -827,21 +848,21 @@ def main():
         epilog="""
 Examples:
   %(prog)s -i proband.cnvkit.cnr -o proband_gene_cnv.tsv
-  %(prog)s input.cnr output.tsv --del-threshold -0.4 --dup-threshold 0.3
+  %(prog)s input.cnr output.tsv --cn-del-threshold 1.5 --cn-dup-threshold 2.5
   %(prog)s input.cnr output.tsv --alpha 0.05 --min-bins 2
 
 Algorithm:
   1. CBS (Circular Binary Segmentation) identifies copy number change points
   2. Segments are mapped to genes based on genomic overlap
   3. Copy number (CN) is calculated: CN = 2 * 2^log2
-  4. CNV call (DEL/DUP/Normal) is based on configurable thresholds
+  4. CNV call (DEL/DUP/Normal) is based on CN thresholds
   5. Confidence level reflects statistical significance and data quality
 
-Thresholds:
-  --del-threshold: log2 < this value is called DEL (default: -0.4)
-                   Heterozygous deletion CN=1 has log2 ≈ -0.5
-  --dup-threshold: log2 > this value is called DUP (default: 0.3)
-                   Heterozygous duplication CN=3 has log2 ≈ 0.58
+CN Thresholds:
+  --cn-del-threshold: CN < this value is called DEL (default: 1.5)
+                      Heterozygous deletion has CN ≈ 1
+  --cn-dup-threshold: CN > this value is called DUP (default: 2.5)
+                      Heterozygous duplication has CN ≈ 3
         """
     )
     parser.add_argument("-i", "--input", required=True, help="Input CNVkit .cnr file")
@@ -851,10 +872,10 @@ Thresholds:
                         help="Significance threshold for CBS (default: 0.01)")
     parser.add_argument("--min-bins", type=int, default=3,
                         help="Minimum bins per segment (default: 3)")
-    parser.add_argument("--del-threshold", type=float, default=-0.4,
-                        help="Log2 threshold for deletion call (default: -0.4)")
-    parser.add_argument("--dup-threshold", type=float, default=0.3,
-                        help="Log2 threshold for duplication call (default: 0.3)")
+    parser.add_argument("--cn-del-threshold", type=float, default=1.5,
+                        help="CN threshold for deletion call (default: 1.5)")
+    parser.add_argument("--cn-dup-threshold", type=float, default=2.5,
+                        help="CN threshold for duplication call (default: 2.5)")
 
     args = parser.parse_args()
 
@@ -879,11 +900,11 @@ Thresholds:
     total_segments = sum(len(s) for s in segments.values())
     print(f"\nTotal segments: {total_segments}")
 
-    # Step 3: Map to genes with thresholds
+    # Step 3: Map to genes with CN thresholds
     print(f"\nMapping segments to genes...")
-    print(f"  DEL threshold: {args.del_threshold}")
-    print(f"  DUP threshold: {args.dup_threshold}")
-    gene_cnvs = gene_level_cnv(bins, segments, args.del_threshold, args.dup_threshold)
+    print(f"  CN DEL threshold: {args.cn_del_threshold}")
+    print(f"  CN DUP threshold: {args.cn_dup_threshold}")
+    gene_cnvs = gene_level_cnv(bins, segments, args.cn_del_threshold, args.cn_dup_threshold)
     print(f"  Gene-level CNV calls: {len(gene_cnvs)}")
 
     # Step 4: Write output
