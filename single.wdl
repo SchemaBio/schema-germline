@@ -296,6 +296,11 @@ workflow SingleWES {
             clinvar_version = clinvar_version,
             ref_dir = ref_dir
     }
+    call GERMLINE.MEIReport as MEIReport {
+        input:
+            prefix = prefix,
+            mei_vcf = MeiVEP.out_vcf
+    }
 
     # STR分析
     String str_prefix = "~{prefix}.str"
@@ -318,28 +323,28 @@ workflow SingleWES {
             assembly = assembly
     }
 
-    # output {
-    #     File summary = write_json(
-    #         PipelineSummary {
-    #             prefix: prefix,
-    #             status: "Success",
-    #             pipeline: "WES_Single",
-    #             version: "v0.0.1",
-    #             bam: Markdup.markdup_bam,
-    #             bai: Markdup.markdup_bai,
-    #             bed: FixBed.fixed_bed,
-    #             qc_result: QCReport.qc_result,
-    #             vcf_raw: LeftAlignAndTrimVariants.left_vcf,
-    #             snp_indel
-    #             mt
-    #             cnv_region
-    #             cnv_exon
-    #             cnv_raw: CNVKitFix.cnvkit_cns,
-    #             str
-    #             mei
-    #             upd
-    #             roh
-    #         }
-    #     )
-    # }
+    output {
+        File summary = write_json(
+            PipelineSummary {
+                prefix: prefix,
+                status: "Success",
+                pipeline: "WES_Single",
+                version: "v0.0.1",
+                bam: Markdup.markdup_bam,
+                bai: Markdup.markdup_bai,
+                bed: FixBed.fixed_bed,
+                qc_result: QCReport.qc_result,
+                vcf_raw: LeftAlignAndTrimVariants.left_vcf,
+                snp_indel
+                mt
+                cnv_region
+                cnv_exon
+                cnv_raw: CNVKitFix.cnvkit_cns,
+                str
+                mei: MEIReport.mei_result
+                upd
+                roh
+            }
+        )
+    }
 }

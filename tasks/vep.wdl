@@ -17,11 +17,11 @@ task VEP {
 
     command <<<
         cache_str="Uploaded_variation,Location,REF_ALLELE,Allele,Consequence,IMPACT,DOMAINS,Feature,DISTANCE,EXON,INTRON,SYMBOL,STRAND,HGNC_ID,HGVSc,HGVSp,HGVSg,MAX_AF,Protein_position,Amino_acids,Codons,PUBMED,Existing_variation"
-        custom_str="cytoBand,CLNSIG,CLNDN,CLNSTAR,"
-        gnomad_str="GnomAD_AC_joint,GnomAD_AN_joint,GnomAD_AF_joint,GnomAD_AF_joint_eas,GnomAD_nhomalt_joint_XX,GnomAD_nhomalt_joint_XY,"
-        pangolin_str="Pangolin_gain_score,Pangolin_loss_score,"
-        evo_str="EVOScore2_EVOScore,"
-        am_str="AlphaMissense_AM,AlphaMissense_AMC,"
+        custom_str="cytoBand,CLNSIG,CLNDN,CLNSTAR"
+        gnomad_str="GnomAD_AC_joint,GnomAD_AN_joint,GnomAD_AF_joint,GnomAD_AF_joint_eas,GnomAD_nhomalt_joint_XX,GnomAD_nhomalt_joint_XY"
+        pangolin_str="Pangolin_gain_score,Pangolin_loss_score"
+        evo_str="EVOScore2_EVOScore"
+        am_str="AlphaMissense_AM,AlphaMissense_AMC"
         self_plugin_str="FlankingSequence,MissenseZscore"
 
         db_prefix='hg19'

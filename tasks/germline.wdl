@@ -127,3 +127,22 @@ task QCReport {
         File qc_result = "~{prefix}.qc.json"
     }
 }
+
+# 转座子结果整理
+task MEIReport {
+    input {
+        String prefix
+        File mei_vcf
+    }
+
+    command <<<
+        python /opt/schema-germline/scripts/mei_report.py \
+            -i ~{mei_vcf} \
+            -o ~{prefix}.mei.txt \
+            -t /opt/schema-germline/assets/transcripts.json
+    >>>
+
+    output {
+        File mei_result = "~{prefix}.mei.txt"
+    }
+}
