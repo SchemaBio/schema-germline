@@ -21,6 +21,6 @@ task CNVAnno {
     }
 
     runtime {
-        docker: "docker.schema-bio.com/schemabio/cnvanno:v0.0.1"
+        docker: "docker.schema-bio.com/schemabio/cnvanno:v0.0.2"
     }
 }
