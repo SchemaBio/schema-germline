@@ -146,3 +146,21 @@ task MEIReport {
         File mei_result = "~{prefix}.mei.txt"
     }
 }
+
+# 动态突变结果整理
+task STRReport {
+    input {
+        String prefix
+        File str_vcf
+    }
+
+    command <<<
+        python /opt/schema-germline/scripts/str_report.py \
+            -i ~{str_vcf} \
+            -o ~{prefix}.str.txt
+    >>>
+
+    output {
+        File str_result = "~{prefix}.str.txt"
+    }
+}

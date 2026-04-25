@@ -322,6 +322,11 @@ workflow SingleWES {
             vcf = ExpansionHunter.str_vcf,
             assembly = assembly
     }
+    call GERMLINE.STRReport as STRReport {
+        input:
+            prefix = prefix,
+            str_vcf = Stranger.anno_vcf
+    }
 
     output {
         File summary = write_json(
@@ -340,7 +345,7 @@ workflow SingleWES {
                 cnv_region
                 cnv_exon
                 cnv_raw: CNVKitFix.cnvkit_cns,
-                str
+                str: STRReport.str_result
                 mei: MEIReport.mei_result
                 upd
                 roh
