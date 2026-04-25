@@ -9,6 +9,9 @@
     "SingleWES.ref_dir": "/mnt/data/database",
     "SingleWES.cnvkit_reference": "/mnt/data/test/reference.cnvkit.cnn",
     "SingleWES.sry_sex_cutoff": 20,
+    "SingleWES.cnv_bin_size": 20000,
+    "SingleWES.cnv_dup_threshold": 2.5,
+    "SingleWES.cnv_del_threshold": 1.5,
     "SingleWES.cache_dir": "/mnt/data/database/vep",
     "SingleWES.schema_bundle": "/mnt/data/database/schema_bundle"
 }

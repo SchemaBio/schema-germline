@@ -43,12 +43,20 @@
 ### 2. 拉取镜像
 
 ```bash
+# 核心镜像
 docker pull docker.schema-bio.com/schemabio/gatk:4.6.2.0
 docker pull docker.schema-bio.com/schemabio/deepvariant:1.10.0
+docker pull docker.schema-bio.com/schemabio/deeptrio:1.10.0
 docker pull docker.schema-bio.com/schemabio/vep:115.2
 docker pull docker.schema-bio.com/schemabio/whatshap:2.8
 docker pull docker.schema-bio.com/schemabio/mapping:v1.0.0
-docker pull docker.schema-bio.com/schemabio/germline:v0.0.4
+docker pull docker.schema-bio.com/schemabio/germline:v0.0.6
+docker pull docker.schema-bio.com/schemabio/cnvkit:0.9.13.2
+docker pull docker.schema-bio.com/schemabio/cnvanno:v0.0.2
+docker pull docker.schema-bio.com/schemabio/expansionhunter:5.0.0
+docker pull docker.schema-bio.com/schemabio/stranger:v0.10.0.1
+docker pull docker.schema-bio.com/schemabio/automap:1.3
+docker pull docker.schema-bio.com/schemabio/tiea_wes:2.0.1
 ```
 
 ### 3. 准备配置文件
