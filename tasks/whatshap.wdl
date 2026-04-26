@@ -25,7 +25,6 @@ task Whatshap {
 
         # 3. 使用 xargs 实现多线程并发处理各个染色体
         # -P ~{threads} 表示同时运行的进程数
-        # 注意：这里加入了 --pe 参数
         cat contigs.txt | xargs -I {} -P ~{threads} sh -c '
             whatshap phase \
                 --chromosome {} \
