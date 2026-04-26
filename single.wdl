@@ -190,7 +190,7 @@ workflow SingleWES {
             vcf = DeepVariant.vcf,
             vcf_tbi = DeepVariant.vcf_tbi,
             fasta = ref_fasta_name,
-            threads = 8,
+            threads = 20,
             ref_dir = ref_dir
     }
     call GATK.LeftAlignAndTrimVariants as LeftAlignAndTrimVariants {
