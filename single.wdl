@@ -188,6 +188,7 @@ workflow SingleWES {
             bam = Markdup.markdup_bam,
             bai = Markdup.markdup_bai,
             vcf = DeepVariant.vcf,
+            vcf_tbi = DeepVariant.vcf_tbi,
             fasta = ref_fasta_name,
             threads = 8,
             ref_dir = ref_dir
