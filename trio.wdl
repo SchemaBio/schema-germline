@@ -19,6 +19,7 @@ import "tasks/stranger.wdl" as STRANGER
 import "tasks/automap.wdl" as AUTOMAP
 import "tasks/cnvanno.wdl" as CNVANNO
 import "tasks/glnexus.wdl" as GLNEXUS
+import "tasks/peddy.wdl" as PEDDY
 
 struct MetaFasta {
     Array[String] members
@@ -46,6 +47,7 @@ struct PipelineSummary {
     File mei
     File roh
     File upd
+    File peddy
 }
 
 workflow TrioWES {
@@ -57,6 +59,7 @@ workflow TrioWES {
         Int flank_size
         String assembly
         File cnvkit_reference
+        File ped
         Int sry_sex_cutoff
         Float cnv_del_threshold = 1.5
         Float cnv_dup_threshold = 2.5
@@ -200,6 +203,18 @@ workflow TrioWES {
             ],
             threads = 16
     }
+
+    # 亲缘关系计算
+    call PEDDY.Peddy as Peddy {
+        input:
+            prefix = prefix,
+            vcf = GLNexus.out_vcf,
+            vcf_idx = GLNexus.out_tbi,
+            ped = ped,
+            assembly = assembly,
+            threads = 8
+    }
+
     call WHATSHAP.Whatshap as Whatshap {
         input:
             prefix = prefix,
@@ -452,7 +467,8 @@ workflow TrioWES {
                 str: STRReport.str_result,
                 mei: MEIReport.mei_result,
                 roh: ROHReport.roh_result,
-                upd: UPD.upd_result
+                upd: UPD.upd_result,
+                peddy: Peddy.ped_check
             }
         )
     }

@@ -14,6 +14,7 @@
     "TrioWES.fasta": "/mnt/data/database/Homo_sapiens.GRCh37.dna.primary_assembly.fa",
     "TrioWES.bed": "/mnt/data/test/hg19_IDTv1.bed",
     "TrioWES.flank_size": 50,
+    "TrioWES.ped": "/mnt/data/test/ped.txt",
     "TrioWES.assembly": "GRCh37",
     "TrioWES.ref_dir": "/mnt/data/database",
     "TrioWES.cnvkit_reference": "/mnt/data/test/reference.cnvkit.cnn",

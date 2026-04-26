@@ -1,0 +1,4 @@
+#FamilyID	SampleID	PatID	MatID	Sex	Phenotype
+FAMDefault	father	0	0	1	1
+FAMDefault	mother	0	0	2	1
+FAMDefault	proband	father	mother	1	2
