@@ -298,3 +298,25 @@ task CNVRegion {
     }
 
 } 
+
+task UPD {
+    input {
+        String prefix
+        File proband_roh_report
+        File father_roh_report
+        File mother_roh_report
+    }
+
+    command <<<
+        python3 /opt/schema-germline/scripts/upd_detection.py \
+            -p ~{proband_roh_report} \
+            -f ~{father_roh_report} \
+            -m ~{mother_roh_report} \
+            -o ~{prefix}.upd_report.txt
+    >>>
+
+    output {
+        File upd_result = "~{prefix}.upd_report.txt"
+    }
+
+} 
