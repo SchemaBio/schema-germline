@@ -299,7 +299,7 @@ workflow SingleWES {
     call CNVANNO.CNVAnno as CNVAnnoRegion {
         input:
             prefix = cnv_region_prefix,
-            cnv_bed = CNVAnnoGene.cnv_result,
+            cnv_bed = CNVRegion.cnv_result,
             assembly = assembly
     }
 
@@ -319,7 +319,7 @@ workflow SingleWES {
     }
     call GERMLINE.ROHReport as ROHReport {
         input:
-            prefix = prefix
+            prefix = prefix,
             automap_report = AutoMap.combined_tsv,
             assembly = assembly
     }
