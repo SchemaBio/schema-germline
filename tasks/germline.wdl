@@ -105,7 +105,7 @@ task QCReport {
     }
 
     command <<<
-        python /opt/schema-germline/scripts/generate_qc_report.py \
+        python3 /opt/schema-germline/scripts/generate_qc_report.py \
             --sample ~{prefix} \
             --output ~{prefix}.qc.json \
             --fastp ~{fastp_stats} \
@@ -132,7 +132,7 @@ task MEIReport {
     }
 
     command <<<
-        python /opt/schema-germline/scripts/mei_report.py \
+        python3 /opt/schema-germline/scripts/mei_report.py \
             -i ~{mei_vcf} \
             -o ~{prefix}.mei.txt \
             -t /opt/schema-germline/assets/transcripts.json
@@ -151,7 +151,7 @@ task STRReport {
     }
 
     command <<<
-        python /opt/schema-germline/scripts/str_report.py \
+        python3 /opt/schema-germline/scripts/str_report.py \
             -i ~{str_vcf} \
             -o ~{prefix}.str.txt
     >>>
@@ -180,7 +180,7 @@ task ROHReport {
             exit 1
         fi
 
-        python /opt/schema-germline/scripts/roh_report.py \
+        python3 /opt/schema-germline/scripts/roh_report.py \
             -i ~{automap_report} \
             -o ~{prefix}.roh.anno.txt \
             -g /opt/schema-germline/assets/gencc-submissions.xlsx \
@@ -218,7 +218,7 @@ task SNPInDelReport {
             sample_names_arg="-n ~{sample_names}"
         fi
 
-        python /opt/schema-germline/scripts/vep_report.py \
+        python3 /opt/schema-germline/scripts/vep_report.py \
             -i ~{vep_vcf} \
             -o ~{prefix}.snv_indel.txt \
             --gencc /opt/schema-germline/assets/gencc-submissions.xlsx \
@@ -240,7 +240,7 @@ task MTReport {
     }
 
     command <<<
-        python /opt/schema-germline/scripts/mt_report.py \
+        python3 /opt/schema-germline/scripts/mt_report.py \
             -i ~{mt_vep_vcf} \
             -o ~{prefix}.mt_report.txt \
             -m /opt/schema-germline/assets/mitophen.json
@@ -261,11 +261,11 @@ task CNVGene {
     }
 
     command <<<
-        python /opt/schema-germline/scripts/gene_level_segment.py \
+        python3 /opt/schema-germline/scripts/gene_level_segment.py \
             -i ~{cnv_cnr} \
             -o ~{prefix}.cnv.gene.txt \
-            --del-threshold ~{cnv_del_threshold} \
-            --dup-threshold ~{cnv_dup_threshold}
+            --cn-del-threshold ~{cnv_del_threshold} \
+            --cn-dup-threshold ~{cnv_dup_threshold}
     >>>
 
     output {
@@ -284,7 +284,7 @@ task CNVRegion {
     }
 
     command <<<
-        python /opt/schema-germline/scripts/merge_bins_for_cnv.py \
+        python3 /opt/schema-germline/scripts/merge_bins_for_cnv.py \
             -i ~{cnv_cnr} \
             -o ~{prefix}.cnv.region.txt \
             --del-threshold ~{cnv_del_threshold} \
