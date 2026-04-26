@@ -32,7 +32,7 @@ task VEP {
         vep \
             --offline --cache \
             --dir_cache ~{cache_dir} --merged \
-            --dir_plugins ~{cache_dir}/Plugin \
+            --dir_plugins /opt/vep/.vep/Plugins \
             --force_overwrite --fork ~{threads} \
             -i ~{vcf} -o ~{prefix}.vep.vcf \
             --format vcf --vcf \
@@ -40,14 +40,14 @@ task VEP {
             --shift_3prime 1 --assembly ~{assembly} --no_escape --check_existing -exclude_predicted --uploaded_allele --show_ref_allele --numbers --domains \
             --total_length --hgvs --hgvsg --symbol --ccds --uniprot --max_af --pubmed \
             --transcript_filter "stable_id match N[MR]_" \
-            --plugin AnnotateClinVar,clinvar_file=~{schema_bundle}/${db_prefix}_clinvar_~{clinvar_version}.vcf.gz,fields=CLNSIG,CLNDN,CLNSTAR \
+            --custom file=~{schema_bundle}/${db_prefix}_clinvar_~{clinvar_version}.vcf.gz,short_name=ClinVar,format=vcf,type=exact,coords=0,fields=CLNSIG%CLNDN%CLNREVSTAT%CLNSTAR \
             --custom file=~{schema_bundle}/${db_prefix}_cytoBand.bed.gz,short_name=cytoBand,format=bed,type=overlap,coords=0 \
             --custom file=~{schema_bundle}/${db_prefix}_gnomad.v4.1.filtered.vcf.gz,short_name=GnomAD,format=vcf,type=exact,coords=0,fields=AC_joint%AN_joint%AF_joint%AF_joint_eas%nhomalt_joint_XX%nhomalt_joint_XY \
             --custom file=~{schema_bundle}/${db_prefix}_pangolin.vcf.gz,short_name=Pangolin,format=vcf,type=exact,coords=0,fields=gain_score%loss_score \
             --custom file=~{schema_bundle}/${db_prefix}_EVOScore2.vcf.gz,short_name=EVOScore2,format=vcf,type=exact,coords=0,fields=EVOScore \
             --custom file=~{schema_bundle}/${db_prefix}_AlphaMissense.v3.vcf.gz,short_name=AlphaMissense,format=vcf,type=exact,coords=0,fields=AM%AMC \
             --plugin FlankingSequence,10 \
-            --plugin MissenseZscoreTranscript,~{schema_bundle}/missenseByTranscript.hg38.v4.1.bed \
+            --plugin MissenseZscoreTranscript,/opt/vep/.vep/Plugins/missenseByTranscript.hg38.v4.1.bed \
             --fields "${cache_str},${custom_str},${gnomad_str},${pangolin_str},${evo_str},${am_str},${self_plugin_str}"
     >>>
 
