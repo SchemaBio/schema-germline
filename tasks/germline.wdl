@@ -289,7 +289,7 @@ task CNVRegion {
             -o ~{prefix}.cnv.region.txt \
             --del-threshold ~{cnv_del_threshold} \
             --dup-threshold ~{cnv_dup_threshold} \
-            --bin-count ~{bin_size} \
+            --bin-size ~{bin_size} \
             --keep-antitarget
     >>>
 
