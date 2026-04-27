@@ -1,0 +1,9 @@
+{
+    "Test.prefix": "proband",
+    "Test.vcf": "/mnt/data/test/proband.left.vcf.gz",
+    "Test.fasta": "/mnt/data/database/Homo_sapiens.GRCh37.dna.primary_assembly.fa",
+    "Test.assembly": "GRCh37",
+    "Test.ref_dir": "/mnt/data/database",
+    "Test.cache_dir": "/mnt/data/database/vep",
+    "Test.schema_bundle": "/mnt/data/database/schema_bundle"
+}

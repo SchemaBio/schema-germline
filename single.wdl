@@ -223,9 +223,10 @@ workflow SingleWES {
         }
     }
 
+    String merged_vcf_prefix = "~{prefix}.vep.merged"
     call GERMLINE.UniversalMergeVcfs as UniversalMergeVcfs {
         input:
-            prefix = prefix,
+            prefix = merged_vcf_prefix,
             vcfs = VEP_Parallel.out_vcf,
             threads = 8
     }
