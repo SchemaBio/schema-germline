@@ -32,12 +32,17 @@ task Whatshap {
                 -o tmp_vcfs/~{prefix}.{}.phase.vcf \
                 ~{vcf} \
                 ~{bam}
+            bgzip -f tmp_vcfs/~{prefix}.{}.phase.vcf
+            tabix -f -p vcf tmp_vcfs/~{prefix}.{}.phase.vcf.gz
         '
+
+        while read chr; do
+            echo "tmp_vcfs/~{prefix}.${chr}.phase.vcf.gz" >> sorted_vcf_list.txt
+        done < contigs.txt
 
         # 4. 获取所有生成的子 VCF 列表并合并 (依赖 bcftools)
         # 将按染色体分散的 VCF 合并为一个完整的全基因组 VCF
-        ls tmp_vcfs/~{prefix}.*.phase.vcf > vcf_list.txt
-        bcftools concat -f vcf_list.txt -O z -o ~{prefix}.phase.vcf.gz
+        bcftools concat -a -f sorted_vcf_list.txt -O z -o ~{prefix}.phase.vcf.gz
         
         # 5. 对最终结果建索引
         tabix -f -p vcf ~{prefix}.phase.vcf.gz
