@@ -15,36 +15,12 @@ task Whatshap {
     Int memory_gb = threads * 2
 
     command <<<
-        set -e # 遇到错误立刻停止
-
-        # 1. 使用 tabix 提取 VCF 中包含变异的所有染色体/Contigs 名称
-        tabix -l ~{vcf} > contigs.txt
-
-        # 2. 创建临时目录存放分染色体的 VCF
-        mkdir -p tmp_vcfs
-
-        # 3. 使用 xargs 实现多线程并发处理各个染色体
-        # -P ~{threads} 表示同时运行的进程数
-        cat contigs.txt | xargs -I {} -P ~{threads} sh -c '
-            whatshap phase \
-                --chromosome {} \
-                --reference=~{ref_dir}/~{fasta} \
-                -o tmp_vcfs/~{prefix}.{}.phase.vcf \
-                ~{vcf} \
-                ~{bam}
-            bgzip -f tmp_vcfs/~{prefix}.{}.phase.vcf
-            tabix -f -p vcf tmp_vcfs/~{prefix}.{}.phase.vcf.gz
-        '
-
-        while read chr; do
-            echo "tmp_vcfs/~{prefix}.${chr}.phase.vcf.gz" >> sorted_vcf_list.txt
-        done < contigs.txt
-
-        # 4. 获取所有生成的子 VCF 列表并合并 (依赖 bcftools)
-        # 将按染色体分散的 VCF 合并为一个完整的全基因组 VCF
-        bcftools concat -a -f sorted_vcf_list.txt -O z -o ~{prefix}.phase.vcf.gz
-        
-        # 5. 对最终结果建索引
+        whatshap phase \
+            --reference=~{ref_dir}/~{fasta} \
+            -o ~{prefix}.phase.vcf \
+            ~{vcf} \
+            ~{bam}
+        bgzip -f ~{prefix}.phase.vcf
         tabix -f -p vcf ~{prefix}.phase.vcf.gz
     >>>
 

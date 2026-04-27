@@ -182,22 +182,40 @@ workflow SingleWES {
             flank_size = 50,
             ref_dir = ref_dir
     }
-    call WHATSHAP.Whatshap as Whatshap {
+
+    # 多线程的whatshap加速处理
+    call GERMLINE.SplitVcf as SplitVcfHap {
         input:
-            prefix = prefix,
-            bam = Markdup.markdup_bam,
-            bai = Markdup.markdup_bai,
-            vcf = DeepVariant.vcf,
-            vcf_tbi = DeepVariant.vcf_tbi,
-            fasta = ref_fasta_name,
-            threads = 20,
-            ref_dir = ref_dir
+            vcf = DeepVariant.vcf
     }
+
+    scatter (i in range(length(SplitVcfHap.split_vcfs))) {
+        call WHATSHAP.Whatshap as Whatshap {
+            input:
+                prefix = "~{prefix}.part~{i}",
+                bam = Markdup.markdup_bam,
+                bai = Markdup.markdup_bai,
+                vcf = SplitVcfHap.split_vcfs[i],
+                vcf_tbi = SplitVcfHap.split_vcf_tbis[i],
+                fasta = ref_fasta_name,
+                threads = 2,
+                ref_dir = ref_dir
+        }
+    }
+
+    String phase_vcf_prefix = "~{prefix}.phase.merged"
+    call GERMLINE.UniversalMergeVcfs as UniversalMergeVcfsHap {
+        input:
+            prefix = phase_vcf_prefix,
+            vcfs = Whatshap.out_vcf,
+            threads = 8
+    }
+
     call GATK.LeftAlignAndTrimVariants as LeftAlignAndTrimVariants {
         input:
             prefix = prefix,
-            vcf = Whatshap.out_vcf,
-            vcf_tbi = Whatshap.out_vcf_tbi,
+            vcf = UniversalMergeVcfsHap.merged_vcf,
+            vcf_tbi = UniversalMergeVcfsHap.merged_vcf_tbi,
             fasta = ref_fasta_name,
             ref_dir = ref_dir
     }

@@ -1,5 +1,8 @@
 version 1.2
 
+import "tasks/germline.wdl" as GERMLINE
+import "tasks/vep.wdl" as VEP
+
 workflow Test {
     input {
         String prefix
