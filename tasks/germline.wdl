@@ -320,3 +320,79 @@ task UPD {
     }
 
 } 
+
+# 拆分任务
+task SplitVcf {
+    input {
+        File vcf
+    }
+    
+    command <<<
+        set -ex
+        # 确保输入 VCF 有索引（如果输入没给，就现场建一个）
+        if [ ! -f "~{vcf}.tbi" ]; then
+            bcftools index -t ~{vcf}
+        fi
+
+        for chrom in $(bcftools view -h ~{vcf} | grep "^##contig" | sed 's/.*ID=\([^,>]*\).*/\1/' | grep -E "^(chr)?([0-9]+|X|Y|M)$"); do
+            bcftools view ~{vcf} --regions $chrom -O z -o ${chrom}.split.vcf.gz
+            bcftools index -t ${chrom}.split.vcf.gz
+        done
+    >>>
+    
+    output {
+        Array[File] split_vcfs = glob("*.split.vcf.gz")
+        Array[File] split_vcf_tbis = glob("*.split.vcf.gz.tbi")
+    }
+}
+
+# 合并任务
+task UniversalMergeVcfs {
+    input {
+        String prefix
+        Array[File] vcfs
+        Int threads
+    }
+
+    Int memory_gb = threads * 4
+
+    command <<<
+        set -ex
+
+        # 1. 汇聚文件并建立软链接
+        # 将分散在不同目录的 VCF 和 TBI 链接到当前目录，确保 bcftools 能找到配对索引
+        VCF_ARRAY=(~{sep=' ' vcfs})
+
+        for f in "${VCF_ARRAY[@]}"; do
+            ln -sf "$f" $(basename "$f")
+            bcftools index -t $(basename "$f")
+        done
+
+        # 2. 生成基于基因组坐标的有序列表
+        for f in *.vcf.gz; do
+            INFO=$(bcftools view -H "$f" | head -n 1 | awk '{print $1"\t"$2}')
+            if [ -n "$INFO" ]; then
+                printf "%s\t%s\n" "$f" "$INFO" >> unsorted_list.tmp
+            fi
+        done
+
+        # 排序逻辑：
+        sort -k2,2V -k3,3n unsorted_list.tmp | cut -f1 > final_vcf_list.txt
+
+        # 3. 使用文件列表执行合并
+        bcftools concat -f final_vcf_list.txt -a -O z -o ~{prefix}.merged.vcf.gz
+
+        # 4. 建立最终索引
+        bcftools index -t ~{prefix}.merged.vcf.gz
+    >>>
+
+    output {
+        File merged_vcf = "~{prefix}.merged.vcf.gz"
+        File merged_vcf_tbi = "~{prefix}.merged.vcf.gz.tbi"
+    }
+
+    runtime {
+        cpu: threads
+        memory: "~{memory_gb}G"
+    }
+}

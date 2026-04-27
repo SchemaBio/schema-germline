@@ -8,25 +8,7 @@
 |------|------|------|
 | SingleWES | `single.wdl` | 单样本全外显子分析 |
 | CNVBaseline | `baseline.wdl` | CNV基线参考构建 |
-| Trio | `trio.wdl` | 家系三人组分析（开发中） |
-
-### SingleWES 分析模块
-
-| 模块 | 功能 |
-|------|------|
-| Fastp | FASTQ质控过滤 |
-| BWA-MEM | 序列比对 |
-| Sambamba | 标记重复 |
-| DeepVariant | SNP/InDel检测 |
-| WhatsHap | 单倍型定相 |
-| VEP | 变异注释（含ClinVar） |
-| GATK Mutect2 | 线粒体变异检测 |
-| CNVKit | 拷贝数变异分析 |
-| ExpansionHunter | STR扩增检测 |
-| Stranger | STR致病性注释 |
-| AutoMap | ROH/UPD分析 |
-| TIEA-WES | 转座子插入分析 |
-| GATK/QCMetrics | 覆盖度质控指标 |
+| Trio | `trio.wdl` | 家系父母子分析 |
 
 ## 快速开始
 
@@ -50,7 +32,7 @@ docker pull docker.schema-bio.com/schemabio/deeptrio:1.10.0
 docker pull docker.schema-bio.com/schemabio/vep:115.2
 docker pull docker.schema-bio.com/schemabio/whatshap:2.8
 docker pull docker.schema-bio.com/schemabio/mapping:v1.0.0
-docker pull docker.schema-bio.com/schemabio/germline:v0.0.6
+docker pull docker.schema-bio.com/schemabio/germline:v0.1.0
 docker pull docker.schema-bio.com/schemabio/cnvkit:0.9.13.2
 docker pull docker.schema-bio.com/schemabio/cnvanno:v0.0.2
 docker pull docker.schema-bio.com/schemabio/expansionhunter:5.0.0
@@ -61,62 +43,25 @@ docker pull docker.schema-bio.com/schemabio/tiea_wes:2.0.1
 
 ### 3. 准备配置文件
 
-#### 单样本分析 (`inputs/single.json`)
+输入参数配置文件示例位于 `inputs/` 目录：
 
-```json
-{
-    "SingleWES.prefix": "proband",
-    "SingleWES.read_1": "/mnt/data/test/sample_R1.fq.gz",
-    "SingleWES.read_2": "/mnt/data/test/sample_R2.fq.gz",
-    "SingleWES.fasta": "/database/Homo_sapiens.GRCh37.dna.primary_assembly.fa",
-    "SingleWES.bed": "/mnt/data/test/capture.bed",
-    "SingleWES.flank_size": 50,
-    "SingleWES.assembly": "GRCh37",
-    "SingleWES.ref_dir": "/database",
-    "SingleWES.cnvkit_reference": "/database/reference.cnvkit.cnn",
-    "SingleWES.cnvkit_segmentation_method": "hmm-germline",
-    "SingleWES.sry_sex_cutoff": 20,
-    "SingleWES.cache_dir": "/database/vep",
-    "SingleWES.schema_bundle": "/database/schema_bundle"
-}
-```
+| 文件 | 用途 |
+|------|------|
+| `inputs/single.json` | 单样本分析参数 |
+| `inputs/baseline.json` | CNV基线构建参数 |
+| `inputs/trio.json` | 家系父母子构建参数 |
 
-#### CNV基线构建 (`inputs/baseline.json`)
+miniwdl运行配置文件示例位于 `conf/` 目录：
 
-```json
-{
-    "CNVBaseline.prefix": "reference",
-    "CNVBaseline.bed": "/mnt/data/test/capture.bed",
-    "CNVBaseline.fasta": "/database/Homo_sapiens.GRCh37.dna.primary_assembly.fa",
-    "CNVBaseline.assembly": "GRCh37",
-    "CNVBaseline.read_1": [
-        "/mnt/data/test/control1_R1.fq.gz",
-        "/mnt/data/test/control2_R1.fq.gz"
-    ],
-    "CNVBaseline.read_2": [
-        "/mnt/data/test/control1_R2.fq.gz",
-        "/mnt/data/test/control2_R2.fq.gz"
-    ],
-    "CNVBaseline.ref_dir": "/database"
-}
-```
-
-> **注意**: BWA索引文件需与fasta同目录同前缀，无需单独配置。
-
-### 4. 配置 miniwdl
-
-| 配置文件 | 环境 |
-|----------|------|
+| 文件 | 环境 |
+|------|------|
 | `conf/local.cfg` | 本地单机 |
 | `conf/slurm.cfg` | Slurm集群 |
 | `conf/lsf.cfg` | LSF集群 |
 
-主要配置项：
-- `max_tasks`: 最大并行任务数
-- `defaults`: 默认Docker镜像和资源
-- `root`: 工作目录路径
+> **注意**: BWA索引文件需与fasta同目录同前缀，无需单独配置。
 
-### 5. 运行流程
+### 4. 运行流程
 
 #### 单样本分析
 
@@ -138,14 +83,14 @@ miniwdl run baseline.wdl \
     -p /path/to/schema-germline
 ```
 
-#### HPC集群运行
+#### 家系父母子分析
 
 ```bash
-# Slurm
-miniwdl run single.wdl --cfg conf/slurm.cfg -i inputs/single.json
-
-# LSF
-miniwdl run single.wdl --cfg conf/lsf.cfg -i inputs/single.json
+miniwdl run trio.wdl \
+    --cfg conf/local.cfg \
+    -i inputs/trio.json \
+    --dir /mnt/data/output \
+    -p /path/to/schema-germline
 ```
 
 ## 项目结构
@@ -185,15 +130,43 @@ schema-germline/
     └── mito.bed
 ```
 
-## 参考数据库要求
+## 参考数据库下载
 
-- 参考基因组 (GRCh37/GRCh38)
-- BWA索引文件
-- VEP缓存目录
-- ClinVar数据库
-- CNVKit参考文件（可选，用于CNV分析）
-- STR目录文件（ExpansionHunter）
-- Schema Bundle（VEP插件资源）
+按需在 [HuggingFace](https://huggingface.co/datasets/pzweuj/SchemaBio_Bundle) 下载对应版本的参考数据库，以 hg38 为例：
+
+```bash
+# 使用 huggingface-cli 下载（推荐）
+pip install huggingface_hub
+huggingface-cli download pzweuj/SchemaBio_Bundle --repo-type dataset --include "hg38/*" --local-dir ./database
+
+# 或使用 git clone
+git clone https://huggingface.co/datasets/pzweuj/SchemaBio_Bundle ./database
+```
+
+建议储存路径：
+
+```bash
+cd database
+
+# 解压参考基因组
+gunzip Homo_sapiens.GRCh38.dna.primary_assembly.fa.gz
+
+# Schema Bundle
+mkdir -p schema_bundle
+mv hg38* schema_bundle/
+
+# Bed
+mkdir -p bed
+mv Gencode.GRCh38.cnvkit.target.bed bed/
+
+# 解压 VEP cache
+mkdir vep
+tar -zxvf homo_sapiens_merged_vep_115_GRCh38.tar.gz -C vep
+rm homo_sapiens_merged_vep_115_GRCh38.tar.gz
+
+# 可选，建立 bwa-mem2 索引
+bwa-mem2 index Homo_sapiens.GRCh38.dna.primary_assembly.fa
+```
 
 ## License
 

@@ -13,7 +13,7 @@ task VEP {
         Directory ref_dir
     }
 
-    Int memory_gb = threads * 2
+    Int memory_gb = threads * 3
 
     command <<<
         cache_str="Uploaded_variation,Location,REF_ALLELE,Allele,Consequence,IMPACT,DOMAINS,Feature,DISTANCE,EXON,INTRON,SYMBOL,STRAND,HGNC_ID,HGVSc,HGVSp,HGVSg,MAX_AF,Protein_position,Amino_acids,Codons,PUBMED,Existing_variation"
@@ -36,6 +36,7 @@ task VEP {
             --force_overwrite --fork ~{threads} \
             -i ~{vcf} -o ~{prefix}.vep.vcf \
             --format vcf --vcf \
+            --buffer_size 50000 \
             --fa ~{ref_dir}/~{fasta} \
             --shift_3prime 1 --assembly ~{assembly} --no_escape --check_existing -exclude_predicted --uploaded_allele --show_ref_allele --numbers --domains \
             --total_length --hgvs --hgvsg --symbol --ccds --uniprot --max_af --pubmed \

@@ -201,22 +201,40 @@ workflow SingleWES {
             fasta = ref_fasta_name,
             ref_dir = ref_dir
     }
-    call VEP.VEP as VEP {
+
+    # 多线程的VEP加速处理
+    call GERMLINE.SplitVcf as SplitVcf {
+        input:
+            vcf = LeftAlignAndTrimVariants.left_vcf
+    }
+
+    scatter (i in range(length(SplitVcf.split_vcfs))) {
+        call VEP.VEP as VEP_Parallel {
+            input:
+                prefix = "~{prefix}.part~{i}",
+                vcf = SplitVcf.split_vcfs[i],
+                cache_dir = cache_dir,
+                schema_bundle = schema_bundle,
+                threads = 2,
+                assembly = assembly,
+                fasta = ref_fasta_name,
+                clinvar_version = clinvar_version,
+                ref_dir = ref_dir
+        }
+    }
+
+    call GERMLINE.UniversalMergeVcfs as UniversalMergeVcfs {
         input:
             prefix = prefix,
-            vcf = LeftAlignAndTrimVariants.left_vcf,
-            cache_dir = cache_dir,
-            schema_bundle = schema_bundle,
-            threads = 16,
-            assembly = assembly,
-            fasta = ref_fasta_name,
-            clinvar_version = clinvar_version,
-            ref_dir = ref_dir
+            vcfs = VEP_Parallel.out_vcf,
+            threads = 8
     }
+
+    # 结果报表
     call GERMLINE.SNPInDelReport as SNPInDelReport {
         input:
             prefix = prefix,
-            vep_vcf = VEP.out_vcf,
+            vep_vcf = UniversalMergeVcfs.merged_vcf,
             sry_file = SamtoolsSexCheck.SRY_count,
             sex_cutoff = sry_sex_cutoff
     }
