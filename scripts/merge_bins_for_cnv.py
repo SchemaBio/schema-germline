@@ -130,46 +130,40 @@ def merge_bins_by_size(bins: list[Bin], bin_size: int, dup_threshold: float = 2.
         if not chrom_bin_list:
             continue
 
-        # Create fixed-size windows for this chromosome
-        chrom_start = min(b.start for b in chrom_bin_list)
-        chrom_end = max(b.end for b in chrom_bin_list)
+        # Assign each bin to a window based on its center position
+        # This ensures each bin is only assigned to one window
+        window_bins = defaultdict(list)
 
-        # Generate window boundaries
-        window_starts = []
-        pos = chrom_start
-        while pos < chrom_end:
-            window_starts.append(pos)
-            pos += bin_size
+        for b in chrom_bin_list:
+            # Use bin center to determine which window it belongs to
+            bin_center = (b.start + b.end) // 2
+            window_idx = bin_center // bin_size
+            window_bins[window_idx].append(b)
 
-        # For each window, collect overlapping bins
-        for win_start in window_starts:
-            win_end = win_start + bin_size
-
-            # Find bins that overlap this window
-            overlapping = []
-            for b in chrom_bin_list:
-                # Check if bin overlaps window
-                if b.end > win_start and b.start < win_end:
-                    overlapping.append(b)
-
-            if not overlapping:
+        # Merge bins within each window
+        for window_idx, window_bin_list in sorted(window_bins.items()):
+            if not window_bin_list:
                 continue
 
             # Calculate weighted statistics
-            total_weight = sum(b.weight for b in overlapping)
+            total_weight = sum(b.weight for b in window_bin_list)
             if total_weight > 0:
-                log2_weighted = sum(b.log2 * b.weight for b in overlapping) / total_weight
-                depth_weighted = sum(b.depth * b.weight for b in overlapping) / total_weight
+                log2_weighted = sum(b.log2 * b.weight for b in window_bin_list) / total_weight
+                depth_weighted = sum(b.depth * b.weight for b in window_bin_list) / total_weight
             else:
-                log2_weighted = statistics.mean(b.log2 for b in overlapping)
-                depth_weighted = statistics.mean(b.depth for b in overlapping)
+                log2_weighted = statistics.mean(b.log2 for b in window_bin_list)
+                depth_weighted = statistics.mean(b.depth for b in window_bin_list)
 
             # Collect gene names (unique)
-            genes = list(set(b.gene for b in overlapping if b.gene != "Antitarget"))
+            genes = list(set(b.gene for b in window_bin_list if b.gene != "Antitarget"))
 
-            # Actual start/end based on bins
-            actual_start = min(b.start for b in overlapping)
-            actual_end = max(b.end for b in overlapping)
+            # Window boundaries
+            win_start = window_idx * bin_size
+            win_end = (window_idx + 1) * bin_size
+
+            # Actual start/end based on bins (clipped to window for cleaner boundaries)
+            actual_start = max(min(b.start for b in window_bin_list), win_start)
+            actual_end = min(max(b.end for b in window_bin_list), win_end)
 
             # Calculate CN and CNV call
             cn = calculate_cn(log2_weighted)
@@ -183,7 +177,7 @@ def merge_bins_by_size(bins: list[Bin], bin_size: int, dup_threshold: float = 2.
                 log2=log2_weighted,
                 depth=depth_weighted,
                 weight=total_weight,
-                bin_count=len(overlapping),
+                bin_count=len(window_bin_list),
                 cn=cn,
                 cnv_call=cnv_call
             )
