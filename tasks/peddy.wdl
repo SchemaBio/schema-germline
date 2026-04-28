@@ -34,16 +34,18 @@ task Peddy {
         peddy \
             -p ~{threads} \
             --sites ${fix_assembly} \
-            --plot \
             --prefix ~{prefix} \
             $VCF_BASENAME \
             ~{ped}
+
+        echo "Peddy 主任务完成，正在清理残留进程..."
+        pkill -P $$ || true
     >>>
 
     output {
         File ped_check = "~{prefix}.ped_check.csv"
-        File het_check = "~{prefix}.het_check.csv"
         File sex_check = "~{prefix}.sex_check.csv"
+        File het_check = "~{prefix}.het_check.csv"
     }
 
     runtime {

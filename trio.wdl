@@ -280,7 +280,8 @@ workflow TrioWES {
             prefix = prefix,
             vep_vcf = UniversalMergeVcfs.merged_vcf,
             sry_file = SamtoolsSexCheck.SRY_count[0],
-            sex_cutoff = sry_sex_cutoff
+            sex_cutoff = sry_sex_cutoff,
+            sample_names = sep(",", meta_info.members)
     }
 
     # 线粒体分析
