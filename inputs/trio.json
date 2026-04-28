@@ -1,16 +1,18 @@
 {
     "TrioWES.prefix": "proband",
-    "TrioWES.meta_info.members": ["proband", "father", "mother"],
-    "TrioWES.meta_info.read_1": [
-        "/mnt/data/test/202511_proband_ILMN_1.fq.gz",
-        "/mnt/data/test/202511_father_ILMN_1.fq.gz",
-        "/mnt/data/test/202511_mother_ILMN_1.fq.gz"
-    ],
-    "TrioWES.meta_info.read_2": [
-        "/mnt/data/test/202511_proband_ILMN_2.fq.gz",
-        "/mnt/data/test/202511_father_ILMN_2.fq.gz",
-        "/mnt/data/test/202511_mother_ILMN_2.fq.gz"
-    ],
+    "TrioWES.meta_info": {
+        "members": ["proband", "father", "mother"],
+        "read_1": [
+            "/mnt/data/test/202511_proband_ILMN_1.fq.gz",
+            "/mnt/data/test/202511_father_ILMN_1.fq.gz",
+            "/mnt/data/test/202511_mother_ILMN_1.fq.gz"
+        ],
+        "read_2": [
+            "/mnt/data/test/202511_proband_ILMN_2.fq.gz",
+            "/mnt/data/test/202511_father_ILMN_2.fq.gz",
+            "/mnt/data/test/202511_mother_ILMN_2.fq.gz"
+        ]
+    },
     "TrioWES.fasta": "/mnt/data/database/Homo_sapiens.GRCh37.dna.primary_assembly.fa",
     "TrioWES.bed": "/mnt/data/test/hg19_IDTv1.bed",
     "TrioWES.flank_size": 50,
