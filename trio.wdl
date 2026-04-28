@@ -215,41 +215,76 @@ workflow TrioWES {
             threads = 8
     }
 
-    call WHATSHAP.Whatshap as Whatshap {
+    # 多线程的whatshap加速处理
+    call GERMLINE.SplitVcf as SplitVcfHap {
         input:
-            prefix = prefix,
-            bam = Markdup.markdup_bam[0],
-            bai = Markdup.markdup_bai[0],
-            vcf = GLNexus.out_vcf,
-            vcf_tbi = GLNexus.out_tbi,
-            fasta = ref_fasta_name,
-            threads = 20,
-            ref_dir = ref_dir
+            vcf = GLNexus.out_vcf
     }
+
+    scatter (i in range(length(SplitVcfHap.split_vcfs))) {
+        call WHATSHAP.Whatshap as Whatshap {
+            input:
+                prefix = "~{prefix}.part~{i}",
+                bam = Markdup.markdup_bam[0],
+                bai = Markdup.markdup_bai[0],
+                vcf = SplitVcfHap.split_vcfs[i],
+                vcf_tbi = SplitVcfHap.split_vcf_tbis[i],
+                fasta = ref_fasta_name,
+                threads = 2,
+                ref_dir = ref_dir
+        }
+    }
+
+    String phase_vcf_prefix = "~{prefix}.phase.merged"
+    call GERMLINE.UniversalMergeVcfs as UniversalMergeVcfsHap {
+        input:
+            prefix = phase_vcf_prefix,
+            vcfs = Whatshap.out_vcf,
+            threads = 8
+    }
+
     call GATK.LeftAlignAndTrimVariants as LeftAlignAndTrimVariants {
         input:
             prefix = prefix,
-            vcf = Whatshap.out_vcf,
-            vcf_tbi = Whatshap.out_vcf_tbi,
+            vcf = UniversalMergeVcfsHap.merged_vcf,
+            vcf_tbi = UniversalMergeVcfsHap.merged_vcf_tbi,
             fasta = ref_fasta_name,
             ref_dir = ref_dir
     }
-    call VEP.VEP as VEP {
+
+    # 多线程的VEP加速处理
+    call GERMLINE.SplitVcf as SplitVcf {
         input:
-            prefix = prefix,
-            vcf = LeftAlignAndTrimVariants.left_vcf,
-            cache_dir = cache_dir,
-            schema_bundle = schema_bundle,
-            threads = 16,
-            assembly = assembly,
-            fasta = ref_fasta_name,
-            clinvar_version = clinvar_version,
-            ref_dir = ref_dir
+            vcf = LeftAlignAndTrimVariants.left_vcf
     }
+
+    scatter (i in range(length(SplitVcf.split_vcfs))) {
+        call VEP.VEP as VEP_Parallel {
+            input:
+                prefix = "~{prefix}.part~{i}",
+                vcf = SplitVcf.split_vcfs[i],
+                cache_dir = cache_dir,
+                schema_bundle = schema_bundle,
+                threads = 2,
+                assembly = assembly,
+                fasta = ref_fasta_name,
+                clinvar_version = clinvar_version,
+                ref_dir = ref_dir
+        }
+    }
+
+    String merged_vcf_prefix = "~{prefix}.vep.merged"
+    call GERMLINE.UniversalMergeVcfs as UniversalMergeVcfs {
+        input:
+            prefix = merged_vcf_prefix,
+            vcfs = VEP_Parallel.out_vcf,
+            threads = 8
+    }
+
     call GERMLINE.SNPInDelReport as SNPInDelReport {
         input:
             prefix = prefix,
-            vep_vcf = VEP.out_vcf,
+            vep_vcf = UniversalMergeVcfs.merged_vcf,
             sry_file = SamtoolsSexCheck.SRY_count[0],
             sex_cutoff = sry_sex_cutoff
     }

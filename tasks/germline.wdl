@@ -364,17 +364,28 @@ task UniversalMergeVcfs {
         VCF_ARRAY=(~{sep=' ' vcfs})
 
         for f in "${VCF_ARRAY[@]}"; do
-            ln -sf "$f" $(basename "$f")
-            bcftools index -t $(basename "$f")
+            fname=$(basename "$f")
+            # 检查是否为压缩格式 (.vcf.gz 或 .vcf.bgz)
+            if [[ "$fname" == *.vcf.gz ]] || [[ "$fname" == *.vcf.bgz ]]; then
+                ln -sf "$f" "$fname"
+            else
+                # 未压缩的 VCF，用 bcftools 压缩
+                ln -sf "$f" "$fname"
+                compressed_name="${fname}.gz"
+                bcftools view -O z -o "$compressed_name" "$fname"
+                fname="$compressed_name"
+            fi
+            bcftools index -t "$fname"
+            echo "$fname" >> processed_vcfs.txt
         done
 
         # 2. 生成基于基因组坐标的有序列表
-        for f in *.vcf.gz; do
+        while read -r f; do
             INFO=$(bcftools view -H "$f" | head -n 1 | awk '{print $1"\t"$2}')
             if [ -n "$INFO" ]; then
                 printf "%s\t%s\n" "$f" "$INFO" >> unsorted_list.tmp
             fi
-        done
+        done < processed_vcfs.txt
 
         # 排序逻辑：
         sort -k2,2V -k3,3n unsorted_list.tmp | cut -f1 > final_vcf_list.txt

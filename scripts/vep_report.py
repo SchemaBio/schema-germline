@@ -10,6 +10,7 @@ Usage:
 import re
 import sys
 import json
+import gzip
 import argparse
 from pathlib import Path
 from collections import defaultdict
@@ -527,11 +528,24 @@ def determine_zygosity(gt, chrom, sex):
 
 
 def parse_vcf(vcf_path, min_quality=1):
-    """Parse VCF file and return list of variant records"""
+    """Parse VCF file and return list of variant records
+
+    Supports both plain VCF (.vcf) and gzipped VCF (.vcf.gz) formats
+    """
     records = []
     csq_header = None
 
-    with open(vcf_path, 'r', encoding='utf-8') as f:
+    # Determine if file is gzipped based on extension
+    vcf_path_str = str(vcf_path)
+    is_gzipped = vcf_path_str.endswith('.gz')
+
+    # Open file with appropriate handler
+    if is_gzipped:
+        f = gzip.open(vcf_path, 'rt', encoding='utf-8')
+    else:
+        f = open(vcf_path, 'r', encoding='utf-8')
+
+    with f:
         for line in f:
             line = line.strip()
 
