@@ -1,7 +1,7 @@
 version 1.2
 
 # 只适用于子父母三人家系
-# miniwdl run /home/ubuntu/schema-germline/single.wdl -p /home/ubuntu/schema-germline --cfg /home/ubuntu/schema-germline/conf/local.cfg -i /home/ubuntu/schema-germline/inputs/single.json --dir /mnt/data/output
+# miniwdl run /home/ubuntu/schema-germline/trio.wdl -p /home/ubuntu/schema-germline --cfg /home/ubuntu/schema-germline/conf/local.cfg -i /home/ubuntu/schema-germline/inputs/trio.json --dir /mnt/data/output
 import "tasks/fastp.wdl" as FASTP
 import "tasks/bwamem.wdl" as BWAMEM
 import "tasks/gatk.wdl" as GATK

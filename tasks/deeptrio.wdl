@@ -1,5 +1,11 @@
 version 1.2
 
+struct MetaFasta {
+    Array[String] members
+    Array[File] read_1
+    Array[File] read_2
+}
+
 # DeepVariant的家系版本，显著提升了家系数据的变异检测能力，尤其是de novo变异的检测能力。适用于父母子样本
 # 输入的Array[File]中严格落实子父母排序
 task DeepTrio {
