@@ -10,7 +10,7 @@ import "tasks/vep.wdl" as VEP
 import "tasks/sambamba.wdl" as SAMBAMBA
 import "tasks/samtools.wdl" as SAMTOOLS
 import "tasks/xamdst.wdl" as XAMDST
-import "tasks/deeptrio.wdl" as DEEPTRIO
+import "tasks/deepvariant.wdl" as DEEPVARIANT
 import "tasks/germline.wdl" as GERMLINE
 import "tasks/tiea_wes.wdl" as TIEAWES
 import "tasks/cnvkit.wdl" as CNVKIT
@@ -174,33 +174,27 @@ workflow TrioWES {
                 sry_cutoff = sry_sex_cutoff,
                 sambamba_stats = Markdup.sambamba_stats
         }
+
+        # DeepVariant 变异检测
+        call DEEPVARIANT.DeepVariant as DeepVariant {
+            input:
+                prefix = meta_info.members[i],
+                bam = Markdup.markdup_bam,
+                bai = Markdup.markdup_bai,
+                fasta = ref_fasta_name,
+                bed = FixBed.fixed_bed,
+                threads = 16,
+                flank_size = flank_size,
+                ref_dir = ref_dir
+        }
     }
 
-    # SNP InDel 分析
-    call DEEPTRIO.DeepTrio as DeepTrio {
-        input:
-            meta_info = meta_info,
-            bam = Markdup.markdup_bam,
-            bai = Markdup.markdup_bai,
-            fasta = ref_fasta_name,
-            bed = FixBed.fixed_bed,
-            threads = 16,
-            flank_size = flank_size,
-            ref_dir = ref_dir
-    }
+    # SNP InDel 分析 - GLNexus 合并各样本 GVCF
     call GLNEXUS.GLNexus as GLNexus {
         input:
             prefix = prefix,
-            gvcf = [
-                DeepTrio.child_gvcf,
-                DeepTrio.parent1_gvcf,
-                DeepTrio.parent2_gvcf
-            ],
-            gvcf_tbi =  [
-                DeepTrio.child_gvcf_index,
-                DeepTrio.parent1_gvcf_index,
-                DeepTrio.parent2_gvcf_index
-            ],
+            gvcf = DeepVariant.gvcf,
+            gvcf_tbi = DeepVariant.gvcf_tbi,
             threads = 16
     }
 
@@ -383,7 +377,7 @@ workflow TrioWES {
     call AUTOMAP.AutoMap as AutoMap {
         input:
             prefix = prefix,
-            vcf = DeepTrio.child_vcf,
+            vcf = DeepVariant.vcf[0],
             assembly = assembly,
             threads = 4
     }
@@ -396,7 +390,7 @@ workflow TrioWES {
     call AUTOMAP.AutoMap as AutoMapParent1 {
         input:
             prefix = meta_info.members[1],
-            vcf = DeepTrio.parent1_vcf,
+            vcf = DeepVariant.vcf[1],
             assembly = assembly,
             threads = 4
     }
@@ -409,7 +403,7 @@ workflow TrioWES {
     call AUTOMAP.AutoMap as AutoMapParent2 {
         input:
             prefix = meta_info.members[2],
-            vcf = DeepTrio.parent2_vcf,
+            vcf = DeepVariant.vcf[2],
             assembly = assembly,
             threads = 4
     }
