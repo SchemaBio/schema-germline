@@ -16,9 +16,9 @@ task Peddy {
         set -e
     
         if [ "~{assembly}" == "GRCh38" ]; then
-            fix_assembly="hg38"
+            fix_assembly="/app/peddy/GRCH38.sites"
         elif [ "~{assembly}" == "GRCh37" ]; then
-            fix_assembly="hg19"
+            fix_assembly="/app/peddy/GRCH37.sites"
         else
             echo "Unsupported assembly: ~{assembly}" >&2
             exit 1
