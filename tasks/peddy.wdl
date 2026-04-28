@@ -33,7 +33,7 @@ task Peddy {
         echo "开始运行 peddy..."
         peddy \
             -p ~{threads} \
-            --sites ~{fix_assembly} \
+            --sites ${fix_assembly} \
             --plot \
             --prefix ~{prefix} \
             $VCF_BASENAME \
