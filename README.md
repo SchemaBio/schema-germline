@@ -18,21 +18,31 @@
 - miniwdl (`pip install miniwdl`)
 - 参考基因组数据库
 
+拉取流程
+```bash
+git clone https://github.com/schemabio/schema-germline.git
+```
+
 #### HPC 集群
 - Slurm (`pip install miniwdl-slurm`)
 - LSF (`pip install miniwdl-lsf`)
+
+
+#### **参数调整**
+
+建议自行调整`single.wdl`、`trio.wdl`、`baseline.wdl`、`conf/*.cfg`的配置细则，适配自己的环境。
 
 ### 2. 拉取镜像
 
 ```bash
 # 核心镜像
+docker pull docker.schema-bio.com/schemabio/germline:v0.1.1
 docker pull docker.schema-bio.com/schemabio/gatk:4.6.2.0
 docker pull docker.schema-bio.com/schemabio/deepvariant:1.10.0
 docker pull docker.schema-bio.com/schemabio/deeptrio:1.10.0
 docker pull docker.schema-bio.com/schemabio/vep:115.2
 docker pull docker.schema-bio.com/schemabio/whatshap:2.8
 docker pull docker.schema-bio.com/schemabio/mapping:v1.0.0
-docker pull docker.schema-bio.com/schemabio/germline:v0.1.0
 docker pull docker.schema-bio.com/schemabio/cnvkit:0.9.13.2
 docker pull docker.schema-bio.com/schemabio/cnvanno:v0.0.2
 docker pull docker.schema-bio.com/schemabio/expansionhunter:5.0.0
