@@ -36,7 +36,7 @@ git clone https://github.com/schemabio/schema-germline.git
 
 ```bash
 # 核心镜像
-docker pull docker.schema-bio.com/schemabio/germline:v0.1.2
+docker pull docker.schema-bio.com/schemabio/germline:v0.1.3
 docker pull docker.schema-bio.com/schemabio/gatk:4.6.2.0
 docker pull docker.schema-bio.com/schemabio/deepvariant:1.10.0
 docker pull docker.schema-bio.com/schemabio/vep:115.2
