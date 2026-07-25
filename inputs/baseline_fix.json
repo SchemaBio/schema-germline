@@ -1,0 +1,17 @@
+{
+    "CNVBaselineFix.prefix": "reference.updated",
+    "CNVBaselineFix.bed": "/mnt/data/test/hg19_IDTv1.bed",
+    "CNVBaselineFix.fasta": "/mnt/data/database/Homo_sapiens.GRCh37.dna.primary_assembly.fa",
+    "CNVBaselineFix.assembly": "GRCh37",
+    "CNVBaselineFix.existing_reference": "/mnt/data/test/reference.cnvkit.ref.cnn",
+    "CNVBaselineFix.existing_sample_count": 20,
+    "CNVBaselineFix.read_1": [
+        "/mnt/data/test/new_normal_1_ILMN_1.fq.gz",
+        "/mnt/data/test/new_normal_2_ILMN_1.fq.gz"
+    ],
+    "CNVBaselineFix.read_2": [
+        "/mnt/data/test/new_normal_1_ILMN_2.fq.gz",
+        "/mnt/data/test/new_normal_2_ILMN_2.fq.gz"
+    ],
+    "CNVBaselineFix.ref_dir": "/mnt/data/database"
+}
