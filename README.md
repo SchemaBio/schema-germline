@@ -39,7 +39,7 @@ git clone https://github.com/schemabio/schema-germline.git
 docker pull docker.schema-bio.com/schemabio/germline:v0.1.3
 docker pull docker.schema-bio.com/schemabio/gatk:4.6.2.0
 docker pull docker.schema-bio.com/schemabio/deepvariant:1.10.0
-docker pull docker.schema-bio.com/schemabio/vep:115.2
+docker pull docker.schema-bio.com/schemabio/vep:116.0
 docker pull docker.schema-bio.com/schemabio/whatshap:2.8
 docker pull docker.schema-bio.com/schemabio/mapping:v1.0.0
 docker pull docker.schema-bio.com/schemabio/cnvkit:0.9.13.2
@@ -170,8 +170,8 @@ mv Gencode.GRCh38.cnvkit.target.bed bed/
 
 # 解压 VEP cache
 mkdir vep
-tar -zxvf homo_sapiens_merged_vep_115_GRCh38.tar.gz -C vep
-rm homo_sapiens_merged_vep_115_GRCh38.tar.gz
+tar -zxvf homo_sapiens_merged_vep_116_GRCh38.tar.gz -C vep
+rm homo_sapiens_merged_vep_116_GRCh38.tar.gz
 
 # 可选，建立 bwa-mem2 索引
 bwa-mem2 index Homo_sapiens.GRCh38.dna.primary_assembly.fa

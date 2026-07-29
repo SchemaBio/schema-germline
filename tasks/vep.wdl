@@ -59,6 +59,6 @@ task VEP {
     runtime {
         cpu: threads
         memory: "~{memory_gb}G"
-        docker: "docker.schema-bio.com/schemabio/vep:115.2"
+        docker: "docker.schema-bio.com/schemabio/vep:116.0"
     }
 }
