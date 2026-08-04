@@ -20,80 +20,6 @@ struct PipelineSummary {
     Array[String] added_sample_names
 }
 
-# Fail before FASTQ processing if the cohort metadata cannot be updated safely.
-task ValidateBaselineFixInputs {
-    input {
-        Int read_1_count
-        Int read_2_count
-        Int existing_sample_count
-    }
-
-    command <<<
-        set -e
-
-        if [ ~{read_1_count} -lt 1 ]; then
-            echo "At least one new FASTQ pair is required" >&2
-            exit 1
-        fi
-        if [ ~{read_1_count} -ne ~{read_2_count} ]; then
-            echo "read_1 and read_2 must contain the same number of files" >&2
-            exit 1
-        fi
-        if [ ~{existing_sample_count} -lt 1 ]; then
-            echo "existing_sample_count must be greater than zero" >&2
-            exit 1
-        fi
-
-        echo ~{read_1_count} > added_sample_count.txt
-    >>>
-
-    output {
-        Int added_sample_count = read_int("added_sample_count.txt")
-    }
-
-    runtime {
-        cpu: 1
-        memory: "1G"
-        docker: "docker.schema-bio.com/schemabio/germline:v0.1.3"
-    }
-}
-
-# This is an approximate update because a reference .cnn does not retain the
-# original per-sample observations used by CNVKit's robust statistics.
-task UpdateCNVKitReference {
-    input {
-        String prefix
-        File old_reference
-        File new_reference
-        Int old_sample_count
-        Int new_sample_count
-        File update_script
-    }
-
-    command <<<
-        set -euo pipefail
-
-        python3 "~{update_script}" \
-            --old-reference "~{old_reference}" \
-            --new-reference "~{new_reference}" \
-            --old-sample-count ~{old_sample_count} \
-            --new-sample-count ~{new_sample_count} \
-            --output "~{prefix}.cnvkit.ref.cnn" \
-            --report "~{prefix}.cnvkit.ref.update.json"
-    >>>
-
-    output {
-        File reference = "~{prefix}.cnvkit.ref.cnn"
-        File update_report = "~{prefix}.cnvkit.ref.update.json"
-    }
-
-    runtime {
-        cpu: 1
-        memory: "2G"
-        docker: "docker.schema-bio.com/schemabio/germline:v0.1.3"
-    }
-}
-
 workflow CNVBaselineFix {
     input {
         String prefix
@@ -105,13 +31,12 @@ workflow CNVBaselineFix {
         Array[File] read_1
         Array[File] read_2
         Directory ref_dir
-        File update_script = "scripts/update_cnv_reference.py"
     }
 
     String ref_fasta_name = basename(fasta)
     Int total_threads = 32
 
-    call ValidateBaselineFixInputs as ValidateInputs {
+    call GERMLINE.ValidateBaselineFixInputs as ValidateInputs {
         input:
             read_1_count = length(read_1),
             read_2_count = length(read_2),
@@ -196,14 +121,13 @@ workflow CNVBaselineFix {
             ref_dir = ref_dir
     }
 
-    call UpdateCNVKitReference as UpdateReference {
+    call GERMLINE.UpdateCNVKitReference as UpdateReference {
         input:
             prefix = prefix,
             old_reference = existing_reference,
             new_reference = NewBatchReference.reference,
             old_sample_count = existing_sample_count,
-            new_sample_count = added_sample_count,
-            update_script = update_script
+            new_sample_count = added_sample_count
     }
 
     Int total_sample_count = existing_sample_count + added_sample_count

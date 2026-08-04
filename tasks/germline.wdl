@@ -407,3 +407,74 @@ task UniversalMergeVcfs {
         memory: "~{memory_gb}G"
     }
 }
+
+# Fail before FASTQ processing if the cohort metadata cannot be updated safely.
+task ValidateBaselineFixInputs {
+    input {
+        Int read_1_count
+        Int read_2_count
+        Int existing_sample_count
+    }
+
+    command <<<
+        set -e
+
+        if [ ~{read_1_count} -lt 1 ]; then
+            echo "At least one new FASTQ pair is required" >&2
+            exit 1
+        fi
+        if [ ~{read_1_count} -ne ~{read_2_count} ]; then
+            echo "read_1 and read_2 must contain the same number of files" >&2
+            exit 1
+        fi
+        if [ ~{existing_sample_count} -lt 1 ]; then
+            echo "existing_sample_count must be greater than zero" >&2
+            exit 1
+        fi
+
+        echo ~{read_1_count} > added_sample_count.txt
+    >>>
+
+    output {
+        Int added_sample_count = read_int("added_sample_count.txt")
+    }
+
+    runtime {
+        cpu: 1
+        memory: "1G"
+    }
+}
+
+# This is an approximate update because a reference .cnn does not retain the
+# original per-sample observations used by CNVKit's robust statistics.
+task UpdateCNVKitReference {
+    input {
+        String prefix
+        File old_reference
+        File new_reference
+        Int old_sample_count
+        Int new_sample_count
+    }
+
+    command <<<
+        set -euo pipefail
+
+        python3 /opt/schema-germline/scripts/update_cnv_reference.py \
+            --old-reference "~{old_reference}" \
+            --new-reference "~{new_reference}" \
+            --old-sample-count ~{old_sample_count} \
+            --new-sample-count ~{new_sample_count} \
+            --output "~{prefix}.cnvkit.ref.cnn" \
+            --report "~{prefix}.cnvkit.ref.update.json"
+    >>>
+
+    output {
+        File reference = "~{prefix}.cnvkit.ref.cnn"
+        File update_report = "~{prefix}.cnvkit.ref.update.json"
+    }
+
+    runtime {
+        cpu: 1
+        memory: "2G"
+    }
+}
