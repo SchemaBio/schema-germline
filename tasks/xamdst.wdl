@@ -23,6 +23,6 @@ task Xamdst {
     runtime {
         cpu: threads
         memory: "~{memory_gb}G"
-        docker: "docker.schema-bio.com/schemabio/mapping:v1.0.0"
+        docker: "docker.schema-bio.com/schemabio/mapping:v1.1.0"
     }
 }
