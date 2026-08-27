@@ -1,6 +1,6 @@
 {
     "CNVBaseline.prefix": "reference",
-    "CNVBaseline.bed": "/mnt/data/test/hg19_IDTv1.bed",
+    "CNVBaseline.bed": "/mnt/data/database/hg19_default.bed",
     "CNVBaseline.fasta": "/mnt/data/database/Homo_sapiens.GRCh37.dna.primary_assembly.fa",
     "CNVBaseline.assembly": "GRCh37",
     "CNVBaseline.read_1": [
