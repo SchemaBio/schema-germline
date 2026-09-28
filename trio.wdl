@@ -33,11 +33,13 @@ struct PipelineSummary {
     String status
     String pipeline
     String version
+    Array[String] members
     Array[File] bam
     Array[File] bai
     File bed
     Array[File] qc_result
     File vcf_raw
+    File vcf_raw_tbi
     File snp_indel
     File mt
     File cnv_region
@@ -484,11 +486,13 @@ workflow TrioWES {
                 status: "Success",
                 pipeline: "WES_Trio",
                 version: "v0.0.1",
+                members: meta_info.members,
                 bam: Markdup.markdup_bam,
                 bai: Markdup.markdup_bai,
                 bed: FixBed.fixed_bed,
                 qc_result: QCReport.qc_result,
                 vcf_raw: LeftAlignAndTrimVariants.left_vcf,
+                vcf_raw_tbi: LeftAlignAndTrimVariants.left_vcf_tbi,
                 snp_indel: SNPInDelReport.snp_indel_result,
                 mt: MTReport.mt_result,
                 cnv_region: CNVAnnoRegion.cnv_anno_result,

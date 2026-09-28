@@ -55,10 +55,17 @@ task LeftAlignAndTrimVariants {
             -V ~{vcf} \
             -O ~{prefix}.left.vcf.gz \
             --split-multi-allelics
+
+        # The result viewer reads compressed VCFs through HTTP Range requests.
+        # Keep the matching tabix index in the declared task outputs so the
+        # recursive archive step preserves both files together.
+        gatk IndexFeatureFile \
+            -I ~{prefix}.left.vcf.gz
     >>>
 
     output {
         File left_vcf = "~{prefix}.left.vcf.gz"
+        File left_vcf_tbi = "~{prefix}.left.vcf.gz.tbi"
     }
 
     runtime {

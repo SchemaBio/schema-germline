@@ -29,6 +29,7 @@ struct PipelineSummary {
     File bed
     File qc_result
     File vcf_raw
+    File vcf_raw_tbi
     File snp_indel
     File mt
     File cnv_region
@@ -426,6 +427,7 @@ workflow SingleWES {
                 bed: FixBed.fixed_bed,
                 qc_result: QCReport.qc_result,
                 vcf_raw: LeftAlignAndTrimVariants.left_vcf,
+                vcf_raw_tbi: LeftAlignAndTrimVariants.left_vcf_tbi,
                 snp_indel: SNPInDelReport.snp_indel_result,
                 mt: MTReport.mt_result,
                 cnv_region: CNVAnnoRegion.cnv_anno_result,
