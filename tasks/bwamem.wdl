@@ -11,35 +11,33 @@ task BwaAlign {
     }
 
     Int actual_threads = if threads > 32 then 32 else threads
-    Int memory_gb = actual_threads * 2
+    # Reserve enough memory for minibwa even when using fewer alignment threads.
+    Int memory_gb = if actual_threads < 16 then 32 else actual_threads * 2
 
     command <<<
-        set -e
+        set -euo pipefail
         
-        # 默认使用标准 bwa
+        # minibwa 为首选；线程数不决定比对工具，索引、CPU 和内存决定可用性。
         USE_MINIBWA=false
-        if [ ~{actual_threads} -ge 16 ]; then
-            echo "[INFO] Threads >= 16, probing for minibwa acceleration..."
-            if grep -q -E "avx2|avx512" /proc/cpuinfo; then
-                echo "[INFO] CPU supports AVX2/AVX512."
-                MEM_KB=$(grep MemTotal /proc/meminfo | awk '{print $2}')
-                if [ "$MEM_KB" -gt 16777216 ]; then
-                    echo "[INFO] Memory is sufficient ($MEM_KB KB)."
-                    if [ -f "~{ref_dir}/~{ref_fasta_name}.l2b" ] && \
-                       [ -f "~{ref_dir}/~{ref_fasta_name}.mbw" ]; then
-                        echo "[INFO] minibwa indexes found!"
-                        USE_MINIBWA=true
-                    else
-                        echo "[WARN] minibwa index missing (.l2b or .mbw). Falling back to standard bwa."
-                    fi
-                else
-                    echo "[WARN] Insufficient memory for minibwa. Falling back."
-                fi
+        if command -v minibwa >/dev/null 2>&1 && \
+           [ -r "~{ref_dir}/~{ref_fasta_name}.l2b" ] && [ -s "~{ref_dir}/~{ref_fasta_name}.l2b" ] && \
+           [ -r "~{ref_dir}/~{ref_fasta_name}.mbw" ] && [ -s "~{ref_dir}/~{ref_fasta_name}.mbw" ] && \
+           grep -q -E "avx2|avx512" /proc/cpuinfo; then
+            MEM_KB=$(grep MemTotal /proc/meminfo | awk '{print $2}')
+            if [ "$MEM_KB" -gt 16777216 ]; then
+                USE_MINIBWA=true
+                echo "[INFO] Using preferred minibwa indexes."
             else
-                echo "[WARN] CPU lacks AVX2/AVX512. Falling back."
+                echo "[WARN] Insufficient memory for minibwa ($MEM_KB KB)."
             fi
-        else
-            echo "[INFO] Threads < 16. Using standard bwa."
+        fi
+        if [ "$USE_MINIBWA" = false ]; then
+            echo "[WARN] minibwa is unavailable on this node; checking standard BWA fallback."
+            command -v bwa >/dev/null 2>&1 || { echo "[ERROR] Neither minibwa nor standard BWA is usable." >&2; exit 1; }
+            for suffix in amb ann bwt pac sa; do
+                [ -r "~{ref_dir}/~{ref_fasta_name}.$suffix" ] && [ -s "~{ref_dir}/~{ref_fasta_name}.$suffix" ] || \
+                    { echo "[ERROR] minibwa is unavailable and standard BWA index .$suffix is missing or empty." >&2; exit 1; }
+            done
         fi
 
         # 注意：无论是谁跑，最终吐出的 BAM 名字必须一样，保证下游无缝衔接

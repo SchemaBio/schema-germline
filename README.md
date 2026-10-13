@@ -8,7 +8,12 @@
 |------|------|------|
 | SingleWES | `single.wdl` | 单样本全外显子分析 |
 | CNVBaseline | `baseline.wdl` | CNV基线参考构建 |
+| CNVBaselineFix | `baseline_fix.wdl` | 使用正常样本校正现有 CNV 基线 |
 | Trio | `trio.wdl` | 家系父母子分析 |
+
+`BwaAlign` 优先使用 minibwa：参考目录需包含与 FASTA 同名的 `.l2b`、`.mbw` 非空索引，运行节点需支持 AVX2/AVX512、具备 minibwa 且内存大于 16 GiB。选择不受线程数是否达到 16 限制，任务至少申请 32 GiB 内存。无法使用 minibwa 时，仅在标准 BWA 的 `.amb`、`.ann`、`.bwt`、`.pac`、`.sa` 索引完整且 `bwa` 可用时回退，否则明确报错。比对命令失败会使任务失败，不会被下游排序命令掩盖。
+
+离线回归检查：`python -m unittest discover -s tests`（需要 Bash）。
 
 ## 快速开始
 
