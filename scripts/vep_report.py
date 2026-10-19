@@ -478,7 +478,7 @@ def format_hgvs_p(hgvs_p):
     return hgvs_p
 
 
-def determine_zygosity(gt, chrom, sex):
+def determine_zygosity(gt, chrom, sex, strict_sex_chromosomes=False):
     """Determine zygosity based on genotype, chromosome and sample sex
 
     Args:
@@ -494,6 +494,20 @@ def determine_zygosity(gt, chrom, sex):
 
     # Normalize genotype
     gt_clean = gt.replace('|', '/')  # Handle phased genotypes
+
+    if strict_sex_chromosomes:
+        canonical_chrom = chrom.removeprefix('chr')
+        alleles = gt_clean.split('/')
+        if any(not allele.isdigit() for allele in alleles):
+            return '.'
+        values = [int(allele) for allele in alleles]
+        if all(value == 0 for value in values):
+            return 'WT'
+        if len(set(values)) > 1:
+            return 'Het'
+        if canonical_chrom in ('X', 'Y') and (len(values) == 1 or sex == 'male'):
+            return 'Hemi'
+        return 'Hom'
 
     # Check for male X/Y chromosome hemizygosity
     if sex == 'male':
@@ -577,15 +591,16 @@ def parse_vcf(vcf_path, min_quality=1):
             filter_status = parts[6]
             info_str = parts[7]
 
-            # Filter out low quality variants (Quality = 0)
-            try:
-                qual_value = float(qual)
-                if qual_value < min_quality:
-                    continue
-            except ValueError:
-                # If quality cannot be parsed as float, skip the record
-                if qual == '.' or qual == '0':
-                    continue
+            # None explicitly disables quality filtering for external VCF workflows.
+            # The legacy default (QUAL >= 1, excluding missing QUAL) is unchanged.
+            if min_quality is not None:
+                try:
+                    qual_value = float(qual)
+                    if qual_value < min_quality:
+                        continue
+                except ValueError:
+                    if qual == '.' or qual == '0':
+                        continue
 
             format_str = parts[8] if len(parts) > 8 else ''
 
@@ -618,7 +633,7 @@ def parse_vcf(vcf_path, min_quality=1):
     return records, csq_header
 
 
-def generate_report(records, output_path, sex='female', sample_names=None):
+def generate_report(records, output_path, sex='female', sample_names=None, strict_sex_chromosomes=False):
     """Generate variant report in tab-separated format
 
     Args:
@@ -748,7 +763,7 @@ def generate_report(records, output_path, sex='female', sample_names=None):
                     ps = sample_data['ps']
 
                     # Determine zygosity for this sample
-                    zygosity = determine_zygosity(gt, record['chrom'], sex)
+                    zygosity = determine_zygosity(gt, record['chrom'], sex, strict_sex_chromosomes)
 
                     if i == 0:
                         # First sample: no suffix
@@ -895,7 +910,7 @@ def generate_report(records, output_path, sex='female', sample_names=None):
     return len(sorted_records)
 
 
-def generate_summary_statistics(records, sex='female'):
+def generate_summary_statistics(records, sex='female', strict_sex_chromosomes=False):
     """Generate summary statistics for variant report"""
     stats = {
         'total': len(records),
@@ -922,7 +937,7 @@ def generate_summary_statistics(records, sex='female'):
         # Count by zygosity (using first sample)
         if record['samples']:
             first_sample_gt = record['samples'][0]['gt']
-            zygosity = determine_zygosity(first_sample_gt, record['chrom'], sex)
+            zygosity = determine_zygosity(first_sample_gt, record['chrom'], sex, strict_sex_chromosomes)
             stats['by_zygosity'][zygosity] += 1
 
         # Get first gene symbol for transcript selection
@@ -980,10 +995,15 @@ Example usage:
                         help='GenCC submissions database file (default: assets/gencc-submissions.xlsx)')
 
     parser.add_argument('--sex',
-                        choices=['male', 'female'],
+                        choices=['male', 'female', 'unknown'],
                         default='female',
                         help='Sample sex for zygosity determination (default: female). '
                              'Male samples will have X/Y chromosome variants marked as Hemi (hemizygous)')
+
+    parser.add_argument('--no-quality-filter', action='store_true',
+                        help='Retain all records, including QUAL . and 0 (external VCF annotation)')
+    parser.add_argument('--strict-sex-chromosomes', action='store_true',
+                        help='Use explicit GT ploidy; preserve heterozygous X/Y calls and allow unknown sex')
 
     parser.add_argument('--names', '-n',
                         default=None,
@@ -1029,19 +1049,19 @@ Example usage:
 
     # Parse VCF
     print("Parsing VCF file...")
-    records, csq_header = parse_vcf(vcf_path)
-    print(f"Found {len(records)} variant records (after filtering Quality=0)")
+    records, csq_header = parse_vcf(vcf_path, min_quality=None if args.no_quality_filter else 1)
+    print(f"Found {len(records)} variant records; quality filtering: {not args.no_quality_filter}")
 
     if not csq_header:
         print("Warning: CSQ header not found, annotation data may be incomplete")
 
     # Generate report
     print("Generating report...")
-    count = generate_report(records, output_path, sex=args.sex, sample_names=sample_names)
+    count = generate_report(records, output_path, sex=args.sex, sample_names=sample_names, strict_sex_chromosomes=args.strict_sex_chromosomes)
     print(f"Report written with {count} entries")
 
     # Generate summary
-    stats = generate_summary_statistics(records, sex=args.sex)
+    stats = generate_summary_statistics(records, sex=args.sex, strict_sex_chromosomes=args.strict_sex_chromosomes)
     print("\n=== Variant Summary Statistics ===")
     print(f"Total variants: {stats['total']}")
     print(f"PASS: {stats['pass']}")

@@ -196,42 +196,59 @@ task SNPInDelReport {
     input {
         String prefix
         File vep_vcf
-        File sry_file
-        Int sex_cutoff
-        String? sample_names  # Optional: comma-separated sample names (e.g., "proband,father,mother")
+        File? sry_file
+        Int sex_cutoff = 30
+        String? sample_names
+        String? sex
+        Boolean external_vcf = false
+        Int? expected_variant_count
     }
 
     command <<<
-        # Determine sex based on SRY reads count
-        sex="female"
-        number=$(cat ~{sry_file})
-        if [ $number -gt ~{sex_cutoff} ]; then
-            sex="male"
-        else
+        set -euo pipefail
+        # Existing single/trio calls continue deriving sex from SRY reads.
+        sex="~{default='' sex}"
+        if [ -z "$sex" ]; then
+            sry_file="~{default='' sry_file}"
+            if [ -z "$sry_file" ]; then
+                echo "SNPInDelReport requires sex or sry_file" >&2
+                exit 1
+            fi
+            number=$(cat "$sry_file")
             sex="female"
+            if [ "$number" -gt ~{sex_cutoff} ]; then
+                sex="male"
+            fi
         fi
-
-        # Set sample names (default to prefix if not provided)
-        if [ -z "~{sample_names}" ]; then
-            sample_names_arg="-n ~{prefix}"
-        else
-            sample_names_arg="-n ~{sample_names}"
+        sample_names="~{default='' sample_names}"
+        if [ -z "$sample_names" ]; then sample_names="~{prefix}"; fi
+        extra_args=()
+        if ~{if external_vcf then "true" else "false"}; then
+            extra_args=(--no-quality-filter --strict-sex-chromosomes)
         fi
-
         python3 /opt/schema-germline/scripts/vep_report.py \
-            -i ~{vep_vcf} \
-            -o ~{prefix}.snv_indel.txt \
+            -i "~{vep_vcf}" \
+            -o "~{prefix}.snv_indel.txt" \
             --gencc /opt/schema-germline/assets/gencc-submissions.xlsx \
             -t /opt/schema-germline/assets/transcripts.json \
-            --sex ${sex} \
-            ${sample_names_arg}
+            --sex "$sex" \
+            --names "$sample_names" \
+            "${extra_args[@]}"
+        expected_count="~{default='' expected_variant_count}"
+        if [ -n "$expected_count" ]; then
+            actual_count=$(awk 'END {print NR-1}' "~{prefix}.snv_indel.txt")
+            if [ "$actual_count" -ne "$expected_count" ]; then
+                echo "Report count differs from normalized variant count" >&2
+                exit 1
+            fi
+        fi
     >>>
 
     output {
         File snp_indel_result = "~{prefix}.snv_indel.txt"
     }
 
-} 
+}
 
 task MTReport {
     input {
