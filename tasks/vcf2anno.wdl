@@ -32,7 +32,6 @@ task InitializeVcf {
     }
 
     runtime {
-        docker: "docker.schema-bio.com/schemabio/germline:v0.1.7"
         cpu: threads
         memory: "8G"
     }
@@ -66,7 +65,6 @@ task InferVcfSex {
     }
 
     runtime {
-        docker: "docker.schema-bio.com/schemabio/germline:v0.1.7"
         cpu: 1
         memory: "2G"
     }
@@ -100,7 +98,6 @@ task IndexAnnotatedVcf {
     }
 
     runtime {
-        docker: "docker.schema-bio.com/schemabio/germline:v0.1.7"
         cpu: 2
         memory: "4G"
     }
