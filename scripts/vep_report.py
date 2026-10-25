@@ -548,6 +548,7 @@ def parse_vcf(vcf_path, min_quality=1):
     """
     records = []
     csq_header = None
+    vcf_sample_names = []
 
     # Determine if file is gzipped based on extension
     vcf_path_str = str(vcf_path)
@@ -572,6 +573,9 @@ def parse_vcf(vcf_path, min_quality=1):
                 continue
 
             if line.startswith('#CHROM'):
+                vcf_sample_names = line.split('\t')[9:]
+                if len(vcf_sample_names) != len(set(vcf_sample_names)):
+                    raise ValueError('Duplicate VCF sample names')
                 continue
 
             if not line:
@@ -626,11 +630,30 @@ def parse_vcf(vcf_path, min_quality=1):
                 'filter': filter_status,
                 'info': info,
                 'csq_entries': csq_entries,
-                'samples': samples_data
+                'samples': samples_data,
+                'sample_names': vcf_sample_names
             }
             records.append(record)
 
     return records, csq_header
+
+
+def align_sample_columns(records, sample_names):
+    """Match biological identities to #CHROM names, never column position."""
+    if len(sample_names) != len(set(sample_names)):
+        raise ValueError('Duplicate requested sample names')
+    aligned = []
+    for record in records:
+        actual = record.get('sample_names', [])
+        samples = record['samples']
+        if len(samples) == 1 and len(sample_names) == 1:
+            order = [0]  # A single sample may retain the historical display alias.
+        else:
+            if len(actual) != len(samples) or len(actual) != len(set(actual)) or set(actual) != set(sample_names):
+                raise ValueError('Requested sample identities must match VCF #CHROM sample names')
+            order = [actual.index(name) for name in sample_names]
+        aligned.append({**record, 'samples': [samples[index] for index in order], 'sample_names': list(sample_names)})
+    return aligned
 
 
 def generate_report(records, output_path, sex='female', sample_names=None, strict_sex_chromosomes=False):
@@ -646,6 +669,7 @@ def generate_report(records, output_path, sex='female', sample_names=None, stric
     # Determine sample names
     if sample_names is None:
         sample_names = ['proband']  # Default single sample name
+    records = align_sample_columns(records, sample_names)
 
     # Build headers dynamically based on sample names
     base_headers = [
@@ -1054,6 +1078,8 @@ Example usage:
 
     if not csq_header:
         print("Warning: CSQ header not found, annotation data may be incomplete")
+
+    records = align_sample_columns(records, sample_names)
 
     # Generate report
     print("Generating report...")
