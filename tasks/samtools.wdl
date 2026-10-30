@@ -24,6 +24,6 @@ task SamtoolsSexCheck {
     }
 
     runtime {
-        docker: "docker.schema-bio.com/schemabio/mapping:v1.1.0"
+        docker: "schemabio/mapping:v1.1.0"
     }
 }

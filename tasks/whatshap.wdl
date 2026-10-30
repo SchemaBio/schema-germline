@@ -32,6 +32,6 @@ task Whatshap {
     runtime {
         cpu: threads
         memory: "~{memory_gb}G"
-        docker: "docker.schema-bio.com/schemabio/whatshap:2.8"
+        docker: "schemabio/whatshap:2.8"
     }
 }

@@ -21,6 +21,6 @@ task Stranger {
     }
 
     runtime {
-        docker: "docker.schema-bio.com/schemabio/stranger:v0.10.0.1"
+        docker: "schemabio/stranger:v0.10.0.1"
     }
 }

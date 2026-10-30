@@ -17,7 +17,7 @@ task CNVKitFix {
     }
 
     runtime {
-        docker: "docker.schema-bio.com/schemabio/cnvkit:0.9.13.2"
+        docker: "schemabio/cnvkit:0.9.13.2"
     }
 }
 
@@ -49,7 +49,7 @@ task CNVKitAntitarget {
     }
 
     runtime {
-        docker: "docker.schema-bio.com/schemabio/cnvkit:0.9.13.2"
+        docker: "schemabio/cnvkit:0.9.13.2"
     }
 }
 
@@ -75,7 +75,7 @@ task CNVKitCoverage {
 
     runtime {
         cpu: threads
-        docker: "docker.schema-bio.com/schemabio/cnvkit:0.9.13.2"
+        docker: "schemabio/cnvkit:0.9.13.2"
     }
 }
 
@@ -100,7 +100,7 @@ task CNVKitReference {
     }
 
     runtime {
-        docker: "docker.schema-bio.com/schemabio/cnvkit:0.9.13.2"
+        docker: "schemabio/cnvkit:0.9.13.2"
     }
 }
 

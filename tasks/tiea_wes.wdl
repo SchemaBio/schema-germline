@@ -17,6 +17,6 @@ task TIEA_WES {
     }
 
     runtime {
-        docker: "docker.schema-bio.com/schemabio/tiea_wes:2.0.1"
+        docker: "schemabio/tiea_wes:2.0.1"
     }
 }

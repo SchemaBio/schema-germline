@@ -63,6 +63,6 @@ task DeepTrio {
     runtime {
         cpu: threads
         memory: "~{memory_gb}G"
-        docker: "docker.schema-bio.com/schemabio/deeptrio:1.10.0"
+        docker: "google/deepvariant:deeptrio-1.10.0"
     }
 }

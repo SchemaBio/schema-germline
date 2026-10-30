@@ -49,7 +49,7 @@ task Peddy {
     }
 
     runtime {
-        docker: "docker.schema-bio.com/schemabio/peddy:0.4.8"
+        docker: "schemabio/peddy:0.4.8"
         cpu: threads
         memory: "~{memory_gb}G"
     }

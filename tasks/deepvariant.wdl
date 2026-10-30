@@ -37,6 +37,6 @@ task DeepVariant {
     runtime {
         cpu: threads
         memory: "~{memory_gb}G"
-        docker: "docker.schema-bio.com/schemabio/deepvariant:1.10.0"
+        docker: "schemabio/deepvariant:1.10.0"
     }
 }

@@ -43,6 +43,6 @@ task GLNexus {
     runtime {
         cpu: threads
         memory: "~{memory_gb}G"
-        docker: "docker.schema-bio.com/schemabio/glnexus:v1.4.1"
+        docker: "schemabio/glnexus:v1.4.1"
     }
 }

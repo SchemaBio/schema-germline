@@ -50,6 +50,6 @@ task ExpansionHunter {
     runtime {
         cpu: threads
         memory: "~{memory_gb}G"
-        docker: "docker.schema-bio.com/schemabio/expansionhunter:5.0.0"
+        docker: "schemabio/expansionhunter:5.0.0"
     }
 }

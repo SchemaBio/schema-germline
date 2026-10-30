@@ -36,7 +36,7 @@ task MitochondrialMutect2 {
     }
 
     runtime {
-        docker: "docker.schema-bio.com/schemabio/gatk:4.6.2.0"
+        docker: "schemabio/gatk:4.6.2.0"
     }
 }
 
@@ -69,7 +69,7 @@ task LeftAlignAndTrimVariants {
     }
 
     runtime {
-        docker: "docker.schema-bio.com/schemabio/gatk:4.6.2.0"
+        docker: "schemabio/gatk:4.6.2.0"
     }
 }
 
@@ -101,7 +101,7 @@ task MarkDuplicates {
     }
 
     runtime {
-        docker: "docker.schema-bio.com/schemabio/gatk:4.6.2.0"
+        docker: "schemabio/gatk:4.6.2.0"
     }
 }
 
@@ -154,7 +154,7 @@ task CollectQCMetrics {
     runtime {
         cpu: threads
         memory: "~{memory_gb}G"
-        docker: "docker.schema-bio.com/schemabio/gatk:4.6.2.0"
+        docker: "schemabio/gatk:4.6.2.0"
     }
 }
 

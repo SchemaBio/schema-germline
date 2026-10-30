@@ -33,6 +33,6 @@ task Fastp {
     runtime {
         cpu: actual_threads
         memory: "~{memory_gb}G"
-        docker: "docker.schema-bio.com/schemabio/mapping:v1.1.0"
+        docker: "schemabio/mapping:v1.1.0"
     }
 }
