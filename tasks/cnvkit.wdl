@@ -9,7 +9,8 @@ task CNVKitFix {
     }
 
     command <<<
-        cnvkit.py fix ~{target_coverage} ~{antitarget_coverage} ~{reference} -o ~{prefix}.cnvkit.cnr
+        set -euo pipefail
+        cnvkit.py fix "~{target_coverage}" "~{antitarget_coverage}" "~{reference}" -o "~{prefix}.cnvkit.cnr"
     >>>
 
     output {
@@ -31,6 +32,7 @@ task CNVKitAntitarget {
     }
 
     command <<<
+        set -euo pipefail
         if [ "~{assembly}" == "GRCh38" ]; then
             excludeble_bed="/app/cnvkit/data/hg38_excludeble.bed"
         elif [ "~{assembly}" == "GRCh37" ]; then
@@ -40,8 +42,8 @@ task CNVKitAntitarget {
             exit 1
         fi
 
-        cnvkit.py access ~{ref_dir}/~{fasta} -x ${excludeble_bed} -o access.bed
-        cnvkit.py antitarget ~{target_bed} -g access.bed -o ~{prefix}.antitarget.bed
+        cnvkit.py access "~{ref_dir}/~{fasta}" -x "${excludeble_bed}" -o access.bed
+        cnvkit.py antitarget "~{target_bed}" -g access.bed -o "~{prefix}.antitarget.bed"
     >>>
 
     output {
@@ -64,8 +66,9 @@ task CNVKitCoverage {
     }
 
     command <<<
-        cnvkit.py coverage ~{bam} ~{target_bed} -o ~{prefix}.targetcoverage.cnn -p ~{threads}
-        cnvkit.py coverage ~{bam} ~{antitarget_bed} -o ~{prefix}.antitargetcoverage.cnn -p ~{threads}
+        set -euo pipefail
+        cnvkit.py coverage "~{bam}" "~{target_bed}" -o "~{prefix}.targetcoverage.cnn" -p ~{threads}
+        cnvkit.py coverage "~{bam}" "~{antitarget_bed}" -o "~{prefix}.antitargetcoverage.cnn" -p ~{threads}
     >>>
 
     output {
@@ -90,7 +93,8 @@ task CNVKitReference {
     }
 
     command <<<
-        cnvkit.py reference -f ~{ref_dir}/~{fasta} -o ~{prefix}.cnvkit.ref.cnn \
+        set -euo pipefail
+        cnvkit.py reference -f "~{ref_dir}/~{fasta}" -o ~{prefix}.cnvkit.ref.cnn \
             ~{sep=" " target_coverages} \
             ~{sep=" " antitarget_coverages}
     >>>

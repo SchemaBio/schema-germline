@@ -14,6 +14,7 @@ The merged file can then be used with gene_level_segment.py for segmentation.
 import argparse
 import sys
 import statistics
+import math
 from pathlib import Path
 from collections import defaultdict
 from dataclasses import dataclass
@@ -49,7 +50,12 @@ class MergedBin:
 def calculate_cn(log2: float) -> float:
     """Calculate copy number from log2 ratio. CN = 2^(log2 + 1) = 2 * 2^log2."""
     import math
-    cn = 2 ** (log2 + 1)
+    try:
+        cn = 2 ** (log2 + 1)
+    except OverflowError as error:
+        raise ValueError("log2 value exceeds the finite copy-number range") from error
+    if not math.isfinite(cn):
+        raise ValueError("copy number must be finite")
     return round(cn, 2)
 
 
@@ -74,31 +80,35 @@ def call_cnv(cn: float, dup_threshold: float, del_threshold: float) -> str:
 
 
 def read_cnr_file(input_file: str, skip_antitarget: bool = True) -> list[Bin]:
-    """Read CNVkit .cnr file."""
+    """Read target bins, rejecting invalid data with a source line number."""
     bins = []
+    expected = ["chromosome", "start", "end", "gene", "log2", "depth", "weight"]
     with open(input_file, "r") as f:
-        header = f.readline()
-        for line in f:
-            fields = line.strip().split("\t")
+        if f.readline().strip().split("\t")[:7] != expected:
+            raise ValueError(f"{input_file}:1: invalid CNVkit .cnr header")
+        for line_number, line in enumerate(f, start=2):
+            if not line.strip():
+                continue
+            fields = line.rstrip("\r\n").split("\t")
             if len(fields) < 7:
+                raise ValueError(f"{input_file}:{line_number}: expected at least 7 columns")
+            if skip_antitarget and fields[3] == "Antitarget":
                 continue
-
-            gene_field = fields[3]
-            # Optionally skip Antitarget regions
-            if skip_antitarget and gene_field == "Antitarget":
-                continue
-
-            bin_data = Bin(
-                chromosome=fields[0],
-                start=int(fields[1]),
-                end=int(fields[2]),
-                gene=gene_field,
-                log2=float(fields[4]),
-                depth=float(fields[5]),
-                weight=float(fields[6])
-            )
+            try:
+                bin_data = Bin(
+                    chromosome=fields[0], start=int(fields[1]), end=int(fields[2]),
+                    gene=fields[3], log2=float(fields[4]), depth=float(fields[5]),
+                    weight=float(fields[6])
+                )
+                if not bin_data.chromosome or bin_data.start < 0 or bin_data.end <= bin_data.start:
+                    raise ValueError("invalid genomic interval")
+                if not all(math.isfinite(v) for v in (bin_data.log2, bin_data.depth, bin_data.weight)):
+                    raise ValueError("log2, depth and weight must be finite")
+                if bin_data.depth < 0 or bin_data.weight < 0:
+                    raise ValueError("depth and weight must be nonnegative")
+            except ValueError as error:
+                raise ValueError(f"{input_file}:{line_number}: {error}") from error
             bins.append(bin_data)
-
     return bins
 
 
@@ -115,6 +125,8 @@ def merge_bins_by_size(bins: list[Bin], bin_size: int, dup_threshold: float = 2.
     Returns:
         List of MergedBin objects
     """
+    if not isinstance(bin_size, int) or bin_size <= 0:
+        raise ValueError("bin_size must be a positive integer")
     # Group bins by chromosome
     chrom_bins = defaultdict(list)
     for bin_data in bins:
@@ -215,6 +227,8 @@ def merge_bins_by_count(bins: list[Bin], bin_count: int, dup_threshold: float = 
     Returns:
         List of MergedBin objects
     """
+    if not isinstance(bin_count, int) or bin_count <= 0:
+        raise ValueError("bin_count must be a positive integer")
     # Group bins by chromosome
     chrom_bins = defaultdict(list)
     for bin_data in bins:
@@ -361,10 +375,22 @@ CNV calling:
                         help="CN threshold for DEL call (default: 1.5, CN <= this value)")
 
     args = parser.parse_args()
+    if args.bin_size is not None and args.bin_size <= 0:
+        parser.error("bin-size must be positive")
+    if args.bin_count is not None and args.bin_count <= 0:
+        parser.error("bin-count must be positive")
+    if not (math.isfinite(args.del_threshold) and math.isfinite(args.dup_threshold)
+            and 0 <= args.del_threshold < args.dup_threshold):
+        parser.error("CN thresholds must be finite and satisfy 0 <= deletion < duplication")
 
     # Read input
     print(f"Reading CNVkit .cnr file: {args.input}")
-    bins = read_cnr_file(args.input, skip_antitarget=not args.keep_antitarget)
+    try:
+        bins = read_cnr_file(args.input, skip_antitarget=not args.keep_antitarget)
+        if not bins:
+            raise ValueError("input contains no bins after filtering")
+    except (ValueError, OSError) as error:
+        parser.error(str(error))
     print(f"  Total bins: {len(bins)}")
 
     # Merge bins
@@ -372,10 +398,16 @@ CNV calling:
     print(f"  DUP threshold: CN >= {args.dup_threshold}")
     print(f"  DEL threshold: CN <= {args.del_threshold}")
     if args.bin_size:
-        merged_bins = merge_bins_by_size(bins, args.bin_size, args.dup_threshold, args.del_threshold)
+        try:
+            merged_bins = merge_bins_by_size(bins, args.bin_size, args.dup_threshold, args.del_threshold)
+        except ValueError as error:
+            parser.error(str(error))
         print(f"  Method: Fixed size ({args.bin_size} bp)")
     else:
-        merged_bins = merge_bins_by_count(bins, args.bin_count, args.dup_threshold, args.del_threshold)
+        try:
+            merged_bins = merge_bins_by_count(bins, args.bin_count, args.dup_threshold, args.del_threshold)
+        except ValueError as error:
+            parser.error(str(error))
         print(f"  Method: Fixed count ({args.bin_count} bins)")
 
     print(f"  Merged bins: {len(merged_bins)}")
@@ -401,6 +433,7 @@ CNV calling:
 
     # Write output
     print(f"\nWriting merged file: {args.output}")
+    Path(args.output).parent.mkdir(parents=True, exist_ok=True)
     write_merged_cnr(merged_bins, args.output)
 
     print(f"\nDone! Use the merged file with gene_level_segment.py for CNV detection.")

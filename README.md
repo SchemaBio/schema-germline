@@ -249,6 +249,53 @@ rm homo_sapiens_merged_vep_116_GRCh38.tar.gz
 bwa-mem2 index Homo_sapiens.GRCh38.dna.primary_assembly.fa
 ```
 
+## CNVGene robustness checks
+
+Run the synthetic CBS and command-line regression suite from this repository:
+
+```bash
+python3 -m unittest discover -s tests -p test_gene_level_segment.py -v
+python3 -m unittest discover -s tests -p test_cnv_chain.py -v
+```
+
+CBS validates both candidate segment lengths before computing sample variance;
+segments with exactly `--min-bins` observations on each side are allowed. Empty
+in-memory chromosomes produce no segments. The CLI rejects an empty target set,
+malformed CNR rows, non-finite values, negative depth/weights, and invalid CBS
+parameters with an explicit error instead of emitting a successful empty report.
+All-zero weights retain the existing unweighted fallback. Gene-to-segment
+membership uses the gene's observed bin indices, so intron-spanning sparse genes
+are retained even when each segment covers less than 10% of the genomic span.
+The geometric coverage ratio remains a reported metric. Missing bin-to-segment
+coverage is an explicit internal contract error. CNV call thresholds and the
+existing statistical formulas are unchanged.
+
+The same CNR input validation applies to CNVRegion. It rejects empty or invalid
+inputs before averaging, validates positive merge sizes/counts, and rejects
+non-finite copy-number results. The initial baseline workflow validates both
+FASTQ array lengths before computing thread counts or starting scatter work.
+CNVkit command blocks stop immediately if any command fails.
+
+CNVAnno's WDL command normalizes DEL/DUP only for the annotator input and restores
+the original columns afterward. It checks record count, ordering and original
+column preservation before atomically publishing the annotation output. This
+adapter is embedded in WDL; it does not require a new CNVAnno image or alter its
+scoring implementation. Germline scripts still require an updated germline image.
+
+The Octopus TSV fallback must be released with the corresponding importer/model
+changes. It now stores median, standard deviation, absolute CN, bin/segment counts,
+coverage, confidence and p-value in their actual fields. Unknown TSV layouts are
+rejected rather than coerced into legacy fields. The backend migration adds the
+new nullable metric columns; it does not repair previously imported data. Existing
+incorrect historical rows require a separate re-import from their source files.
+
+The WDL CNVGene task executes
+`/opt/schema-germline/scripts/gene_level_segment.py` **inside its workflow Docker
+image**. Updating a host checkout alone does not update this task. Include the
+fixed script when publishing the germline image, then update the image used by
+compute nodes before retrying a failed task. The regression suite uses synthetic
+data and does not establish clinical validity.
+
 ## License
 
 MIT

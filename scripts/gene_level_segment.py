@@ -126,7 +126,10 @@ def calculate_cbs_statistic(values: list[float], k: int) -> float:
     between the regions before and after position k.
     """
     n = len(values)
-    if k <= 0 or k >= n - 1:
+    # Sample variance needs at least two observations on BOTH sides. In
+    # particular, k == n - 2 leaves only one value on the right.
+    n1, n2 = k + 1, n - k - 1
+    if n1 < 2 or n2 < 2:
         return 0.0
 
     # Calculate means before and after k
@@ -135,8 +138,8 @@ def calculate_cbs_statistic(values: list[float], k: int) -> float:
 
     # Calculate variance (pooled)
     if n > 2:
-        var1 = statistics.variance(values[:k+1]) if k > 0 else 0.0
-        var2 = statistics.variance(values[k+1:]) if k < n-1 else 0.0
+        var1 = statistics.variance(values[:k+1])
+        var2 = statistics.variance(values[k+1:])
 
         # Pooled variance estimate
         n1 = k + 1
@@ -217,6 +220,14 @@ def t_distribution_p_value_approx(t: float, df: int) -> float:
     return 2 * (1 - normal_cdf(adjusted_t))
 
 
+def validate_cbs_parameters(alpha: float, min_bins: int) -> None:
+    """Reject invalid parameters before reading inputs or starting analysis."""
+    if not math.isfinite(alpha) or not 0 < alpha <= 1:
+        raise ValueError("alpha must be finite and in (0, 1]")
+    if not isinstance(min_bins, int) or min_bins < 2:
+        raise ValueError("min_bins must be an integer of at least 2")
+
+
 def cbs_segment_recursive(
     values: list[float],
     positions: list[int],
@@ -241,7 +252,19 @@ def cbs_segment_recursive(
     Returns:
         List of (start_idx, end_idx) segment boundaries
     """
+    validate_cbs_parameters(alpha, min_bins)
     n = len(values)
+    if len(positions) != n or len(weights) != n:
+        raise ValueError("CBS values, positions and weights must have equal lengths")
+    if max_depth < 0 or depth < 0:
+        raise ValueError("CBS recursion depth must be nonnegative")
+    if depth == 0:
+        if any(not math.isfinite(v) for v in values):
+            raise ValueError("CBS log2 values must be finite")
+        if any(not math.isfinite(w) or w < 0 for w in weights):
+            raise ValueError("CBS weights must be finite and nonnegative")
+    if not n:
+        return []
 
     # Stop conditions
     if n < min_bins * 2 or depth >= max_depth:
@@ -261,6 +284,11 @@ def cbs_segment_recursive(
     # Find maximum cusum point
     k, max_cusum = find_max_cusum_point(cusum)
 
+    # Reject short candidate regions BEFORE evaluating sample variance.
+    # k is inclusive on the left, so exactly min_bins observations is valid.
+    if k + 1 < min_bins or n - k - 1 < min_bins:
+        return [(0, n - 1)]
+
     # Calculate test statistic
     t_stat = calculate_cbs_statistic(values, k)
 
@@ -268,7 +296,7 @@ def cbs_segment_recursive(
     p_value = calculate_p_value(t_stat, n, k)
 
     # Test if change point is significant
-    if p_value > alpha or k < min_bins or k > n - min_bins - 1:
+    if p_value > alpha:
         return [(0, n - 1)]
 
     # Recursively segment left and right regions
@@ -312,6 +340,14 @@ def run_cbs_on_chromosome(
     Returns:
         List of Segment objects
     """
+    validate_cbs_parameters(alpha, min_bins)
+    if not bins:
+        return []
+    for index, bin_data in enumerate(bins):
+        if not math.isfinite(bin_data.log2):
+            raise ValueError(f"Non-finite log2 value in bin {index}")
+        if not math.isfinite(bin_data.weight) or bin_data.weight < 0:
+            raise ValueError(f"Invalid weight in bin {index}")
     if len(bins) < min_bins:
         # Return single segment if too few bins
         log2_values = [b.log2 for b in bins]
@@ -399,31 +435,35 @@ def parse_gene_field(gene_field: str) -> tuple[str, str, str, str]:
 
 
 def read_cnr_file(input_file: str) -> list[Bin]:
-    """Read CNVkit .cnr file."""
+    """Read target bins, rejecting invalid data with a source line number."""
     bins = []
+    expected = ["chromosome", "start", "end", "gene", "log2", "depth", "weight"]
     with open(input_file, "r") as f:
-        header = f.readline()
-        for line in f:
-            fields = line.strip().split("\t")
+        if f.readline().strip().split("\t")[:7] != expected:
+            raise ValueError(f"{input_file}:1: invalid CNVkit .cnr header")
+        for line_number, line in enumerate(f, start=2):
+            if not line.strip():
+                continue
+            fields = line.rstrip("\r\n").split("\t")
             if len(fields) < 7:
+                raise ValueError(f"{input_file}:{line_number}: expected at least 7 columns")
+            if fields[3] == "Antitarget":
                 continue
-
-            gene_field = fields[3]
-            # Skip Antitarget regions
-            if gene_field == "Antitarget":
-                continue
-
-            bin_data = Bin(
-                chromosome=fields[0],
-                start=int(fields[1]),
-                end=int(fields[2]),
-                gene=gene_field,
-                log2=float(fields[4]),
-                depth=float(fields[5]),
-                weight=float(fields[6])
-            )
+            try:
+                bin_data = Bin(
+                    chromosome=fields[0], start=int(fields[1]), end=int(fields[2]),
+                    gene=fields[3], log2=float(fields[4]), depth=float(fields[5]),
+                    weight=float(fields[6])
+                )
+                if not bin_data.chromosome or bin_data.start < 0 or bin_data.end <= bin_data.start:
+                    raise ValueError("invalid genomic interval")
+                if not all(math.isfinite(v) for v in (bin_data.log2, bin_data.depth, bin_data.weight)):
+                    raise ValueError("log2, depth and weight must be finite")
+                if bin_data.depth < 0 or bin_data.weight < 0:
+                    raise ValueError("depth and weight must be nonnegative")
+            except ValueError as error:
+                raise ValueError(f"{input_file}:{line_number}: {error}") from error
             bins.append(bin_data)
-
     return bins
 
 
@@ -458,7 +498,12 @@ def calculate_cn(log2_mean: float, ploidy: int = 2) -> float:
     Returns:
         Copy number as float (rounded to 2 decimal places)
     """
-    cn = ploidy * math.pow(2, log2_mean)
+    try:
+        cn = ploidy * math.pow(2, log2_mean)
+    except OverflowError as error:
+        raise ValueError("log2 value exceeds the finite copy-number range") from error
+    if not math.isfinite(cn):
+        raise ValueError("copy number must be finite")
     return max(0.0, round(cn, 2))
 
 
@@ -608,16 +653,20 @@ def segment_to_gene_cnv(
         gene_start = min(b.start for b in gene_bins_list)
         gene_end = max(b.end for b in gene_bins_list)
 
-        # Find overlapping segments
+        # Match the gene's actual observed bins, not its intron-spanning
+        # genomic width. Sparse exons must not disappear after a valid split.
+        gene_indices = {d["index"] for d in gene_data_list}
+        covered_indices = set()
         overlapping_segments = []
         for seg in segments:
             if seg.chromosome == chromosome:
-                overlap_ratio = calculate_overlap_ratio(seg.start, seg.end, gene_start, gene_end)
-                if overlap_ratio > 0.1:  # At least 10% overlap
+                matched = gene_indices.intersection(seg.probes)
+                if matched:
+                    covered_indices.update(matched)
+                    overlap_ratio = calculate_overlap_ratio(seg.start, seg.end, gene_start, gene_end)
                     overlapping_segments.append((seg, overlap_ratio))
-
-        if not overlapping_segments:
-            continue
+        if covered_indices != gene_indices:
+            raise ValueError(f"CBS segments do not cover all bins for gene {gene_name!r}")
 
         # Calculate gene statistics
         # Use the segment with maximum overlap as primary
@@ -878,6 +927,13 @@ CN Thresholds:
                         help="CN threshold for duplication call (default: 2.5)")
 
     args = parser.parse_args()
+    try:
+        validate_cbs_parameters(args.alpha, args.min_bins)
+        if not (math.isfinite(args.cn_del_threshold) and math.isfinite(args.cn_dup_threshold)
+                and 0 <= args.cn_del_threshold < args.cn_dup_threshold):
+            raise ValueError("CN thresholds must be finite and satisfy 0 <= deletion < duplication")
+    except ValueError as error:
+        parser.error(str(error))
 
     input_path = Path(args.input)
     output_path = Path(args.output)
@@ -890,12 +946,20 @@ CN Thresholds:
 
     # Step 1: Read .cnr file
     print(f"Reading CNVkit .cnr file: {args.input}")
-    bins = read_cnr_file(args.input)
+    try:
+        bins = read_cnr_file(args.input)
+        if not bins:
+            raise ValueError("input contains no target bins")
+    except (ValueError, OSError) as error:
+        parser.error(str(error))
     print(f"  Total target bins: {len(bins)}")
 
     # Step 2: Run CBS segmentation
     print(f"\nRunning CBS segmentation (alpha={args.alpha}, min_bins={args.min_bins})...")
-    segments = run_cbs_segmentation(bins, args.alpha, args.min_bins)
+    try:
+        segments = run_cbs_segmentation(bins, args.alpha, args.min_bins)
+    except ValueError as error:
+        parser.error(str(error))
 
     total_segments = sum(len(s) for s in segments.values())
     print(f"\nTotal segments: {total_segments}")
@@ -904,7 +968,10 @@ CN Thresholds:
     print(f"\nMapping segments to genes...")
     print(f"  CN DEL threshold: {args.cn_del_threshold}")
     print(f"  CN DUP threshold: {args.cn_dup_threshold}")
-    gene_cnvs = gene_level_cnv(bins, segments, args.cn_del_threshold, args.cn_dup_threshold)
+    try:
+        gene_cnvs = gene_level_cnv(bins, segments, args.cn_del_threshold, args.cn_dup_threshold)
+    except ValueError as error:
+        parser.error(str(error))
     print(f"  Gene-level CNV calls: {len(gene_cnvs)}")
 
     # Step 4: Write output

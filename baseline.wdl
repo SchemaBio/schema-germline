@@ -31,7 +31,12 @@ workflow CNVBaseline {
 
     String ref_fasta_name = basename(fasta)
     Int total_threads = 32
-    Int num_samples = length(read_1)
+    call GERMLINE.ValidateBaselineInputs as ValidateInputs {
+        input:
+            read_1_count = length(read_1),
+            read_2_count = length(read_2)
+    }
+    Int num_samples = ValidateInputs.sample_count
 
     # 动态计算基础线程数
     Int base_threads = total_threads / num_samples
@@ -62,7 +67,7 @@ workflow CNVBaseline {
             ref_dir = ref_dir
     }
 
-    scatter (i in range(length(read_1))) {
+    scatter (i in range(num_samples)) {
 
         String raw_filename = basename(read_1[i])
         String clean_name = sub(raw_filename, "\\.fastq\\.gz$|\\.fq\\.gz$", "")

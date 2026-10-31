@@ -278,9 +278,10 @@ task CNVGene {
     }
 
     command <<<
+        set -euo pipefail
         python3 /opt/schema-germline/scripts/gene_level_segment.py \
-            -i ~{cnv_cnr} \
-            -o ~{prefix}.cnv.gene.txt \
+            -i "~{cnv_cnr}" \
+            -o "~{prefix}.cnv.gene.txt" \
             --cn-del-threshold ~{cnv_del_threshold} \
             --cn-dup-threshold ~{cnv_dup_threshold}
     >>>
@@ -301,9 +302,10 @@ task CNVRegion {
     }
 
     command <<<
+        set -euo pipefail
         python3 /opt/schema-germline/scripts/merge_bins_for_cnv.py \
-            -i ~{cnv_cnr} \
-            -o ~{prefix}.cnv.region.txt \
+            -i "~{cnv_cnr}" \
+            -o "~{prefix}.cnv.region.txt" \
             --del-threshold ~{cnv_del_threshold} \
             --dup-threshold ~{cnv_dup_threshold} \
             --bin-size ~{bin_size} \
@@ -422,6 +424,33 @@ task UniversalMergeVcfs {
     runtime {
         cpu: threads
         memory: "~{memory_gb}G"
+    }
+}
+
+# Validate both FASTQ arrays before thread arithmetic or scatter begins.
+task ValidateBaselineInputs {
+    input {
+        Int read_1_count
+        Int read_2_count
+    }
+    command <<<
+        set -euo pipefail
+        if [ ~{read_1_count} -lt 1 ]; then
+            echo "At least one new FASTQ pair is required" >&2
+            exit 1
+        fi
+        if [ ~{read_1_count} -ne ~{read_2_count} ]; then
+            echo "read_1 and read_2 must contain the same number of files" >&2
+            exit 1
+        fi
+        echo ~{read_1_count} > sample_count.txt
+    >>>
+    output {
+        Int sample_count = read_int("sample_count.txt")
+    }
+    runtime {
+        cpu: 1
+        memory: "1G"
     }
 }
 
