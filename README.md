@@ -1,6 +1,6 @@
 # Schema Germline Pipeline
 
-基于 WDL 的全外显子胚系变异检测流程，支持多种变异类型分析。
+基于 WDL 的胚系变异检测与注释流程，包含单样本、家系、CNV 基线构建与校正，以及 VCF 起始注释。运行前按参考版本准备匹配的基因组、索引和注释资源。
 
 ## 流程概览
 
@@ -13,6 +13,8 @@
 | Trio | `trio.wdl` | 家系父母子分析 |
 
 `BwaAlign` 优先使用 minibwa：参考目录需包含与 FASTA 同名的 `.l2b`、`.mbw` 非空索引，运行节点需支持 AVX2/AVX512、具备 minibwa 且内存大于 16 GiB。选择不受线程数是否达到 16 限制，任务至少申请 32 GiB 内存。无法使用 minibwa 时，仅在标准 BWA 的 `.amb`、`.ann`、`.bwt`、`.pac`、`.sa` 索引完整且 `bwa` 可用时回退，否则明确报错。比对命令失败会使任务失败，不会被下游排序命令掩盖。
+
+工作流使用 GRCh37 或 GRCh38 参考资源时，输入中的 assembly、FASTA、索引和注释资源必须保持一致。示例输入中的路径需要替换为部署环境中的实际路径。VCF2Anno 的参考版本与参数见下文。
 
 离线回归检查：`python -m unittest discover -s tests`（需要 Bash）。
 
@@ -64,6 +66,7 @@ docker pull docker.schema-bio.com/schemabio/tiea_wes:2.0.1
 |------|------|
 | `inputs/single.json` | 单样本分析参数 |
 | `inputs/baseline.json` | CNV基线构建参数 |
+| `inputs/baseline_fix.json` | CNV 基线校正参数 |
 | `inputs/trio.json` | 家系父母子构建参数 |
 
 miniwdl运行配置文件示例位于 `conf/` 目录：
