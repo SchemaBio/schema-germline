@@ -34,7 +34,7 @@ workflow CNVBaselineFix {
     }
 
     String ref_fasta_name = basename(fasta)
-    Int total_threads = 32
+    Int total_threads = 16
 
     call GERMLINE.ValidateBaselineFixInputs as ValidateInputs {
         input:

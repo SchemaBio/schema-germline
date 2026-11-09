@@ -92,14 +92,14 @@ workflow SingleWES {
             read_2 = Fastp.clean_read_2,
             ref_dir = ref_dir,
             ref_fasta_name = ref_fasta_name,
-            threads = 32
+            threads = 16
     }
     call SAMBAMBA.SambambaMarkdup as Markdup {
         input:
             prefix = prefix,
             bam = BwaAlign.out_bam,
             bai = BwaAlign.out_bai,
-            threads = 32
+            threads = 16
     }
 
     # 废弃的Markdup任务，使用Sambamba替代GATK进行去重
