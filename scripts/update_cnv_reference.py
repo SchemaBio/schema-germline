@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Incrementally merge two CNVKit reference .cnn files.
+"""Select reference bins and incrementally merge CNVKit reference .cnn files.
 
 CNVKit references contain cohort summaries rather than the per-sample values
 used to build them. This script therefore performs a sample-count-weighted
@@ -10,6 +10,8 @@ files exactly.
 from __future__ import annotations
 
 import argparse
+from bisect import bisect_right
+import gzip
 import csv
 import json
 import math
@@ -51,6 +53,92 @@ def read_reference(path: Path) -> tuple[list[str], list[dict[str, str]]]:
     if not rows:
         raise ReferenceError(f"Reference has no data rows: {path}")
     return header, rows
+
+
+
+def chromosome_key(value: str) -> str:
+    value = value.removeprefix("chr")
+    return "MT" if value == "M" else value
+
+
+def bin_key(row: dict[str, str]) -> tuple[str, int, int]:
+    try:
+        start, end = int(row["start"]), int(row["end"])
+    except (KeyError, TypeError, ValueError) as exc:
+        raise ReferenceError("Reference bin coordinates must be integers") from exc
+    if not row["chromosome"] or start < 0 or end <= start:
+        raise ReferenceError(f"Invalid reference bin: {row}")
+    return row["chromosome"], start, end
+
+
+def index_reference(rows: list[dict[str, str]]) -> dict[tuple[str, int, int], dict[str, str]]:
+    indexed = {}
+    for row in rows:
+        key = bin_key(row)
+        if key in indexed:
+            raise ReferenceError(f"Duplicate reference bin: {key}")
+        indexed[key] = row
+    return indexed
+
+
+def bed_intervals(path: Path) -> dict[str, list[tuple[int, int]]]:
+    with path.open("rb") as handle:
+        compressed = handle.read(2) == b"\x1f\x8b"
+    opener = gzip.open if compressed else open
+    intervals: dict[str, list[tuple[int, int]]] = {}
+    with opener(path, "rt", encoding="utf-8") as handle:
+        for line_number, line in enumerate(handle, 1):
+            fields = line.split()
+            if not fields or fields[0].startswith("#") or fields[0] in ("track", "browser"):
+                continue
+            try:
+                chrom, start, end = fields[0], int(fields[1]), int(fields[2])
+            except (IndexError, ValueError) as exc:
+                raise ReferenceError(f"Invalid BED row {line_number}") from exc
+            if start < 0 or end <= start:
+                raise ReferenceError(f"Invalid BED interval at row {line_number}")
+            intervals.setdefault(chromosome_key(chrom), []).append((start, end))
+    if not intervals:
+        raise ReferenceError("BED has no intervals")
+    for chrom, regions in intervals.items():
+        merged: list[tuple[int, int]] = []
+        for start, end in sorted(regions):
+            if merged and start <= merged[-1][1]:
+                merged[-1] = (merged[-1][0], max(end, merged[-1][1]))
+            else:
+                merged.append((start, end))
+        intervals[chrom] = merged
+    return intervals
+
+
+def prepare_reference(
+    reference: Path, bed: Path | None, output: Path, target_bed: Path, antitarget_bed: Path
+) -> None:
+    header, rows = read_reference(reference)
+    index_reference(rows)
+    if bed is not None:
+        intervals = bed_intervals(bed)
+        starts = {chrom: [start for start, _ in regions] for chrom, regions in intervals.items()}
+        selected = []
+        for row in rows:
+            chrom, start, end = bin_key(row)
+            chrom = chromosome_key(chrom)
+            regions = intervals.get(chrom, [])
+            position = bisect_right(starts.get(chrom, []), start) - 1
+            if position >= 0 and regions[position][1] >= end:
+                selected.append(row)
+        rows = selected
+    if not rows:
+        raise ReferenceError("BED does not fully cover any reference bins")
+    targets = [row for row in rows if row["gene"] not in ("Antitarget", "Background")]
+    antitargets = [row for row in rows if row["gene"] in ("Antitarget", "Background")]
+    if not targets:
+        raise ReferenceError("Selected reference has no target bins")
+    # Keep the reference chromosome spelling and gene labels in coverage inputs.
+    for path, regions in ((target_bed, targets), (antitarget_bed, antitargets)):
+        bed_rows = [{column: row[column] for column in KEY_COLUMNS} for row in regions]
+        atomic_write_tsv(path, list(KEY_COLUMNS), bed_rows, write_header=False)
+    atomic_write_tsv(output, header, rows)
 
 
 def parse_number(row: dict[str, str], column: str, path: Path, line: int) -> float:
@@ -122,18 +210,23 @@ def merge_references(
     old_header, old_rows = read_reference(old_path)
     new_header, new_rows = read_reference(new_path)
 
-    if old_header != new_header:
+    if set(old_header).symmetric_difference(new_header) - {"rmask"}:
         raise ReferenceError(
             "Reference headers differ. Both references must be produced by the "
             f"same CNVKit setup. old={old_header}, new={new_header}"
         )
-    if len(old_rows) != len(new_rows):
+    old_index = index_reference(old_rows)
+    new_index = index_reference(new_rows)
+    if old_index.keys() != new_index.keys():
         raise ReferenceError(
-            f"Reference bin counts differ: old={len(old_rows)}, new={len(new_rows)}"
+            f"Reference bin sets differ: old={len(old_rows)}, new={len(new_rows)}, "
+            f"missing={len(old_index.keys() - new_index.keys())}, "
+            f"unexpected={len(new_index.keys() - old_index.keys())}"
         )
 
     merged_rows: list[dict[str, str]] = []
-    for line, (old_row, new_row) in enumerate(zip(old_rows, new_rows), start=1):
+    for line, old_row in enumerate(old_rows, start=1):
+        new_row = new_index[bin_key(old_row)]
         validate_row_identity(old_row, new_row, line)
 
         old_log2 = parse_number(old_row, "log2", old_path, line)
@@ -169,6 +262,7 @@ def atomic_write_tsv(
     output_path: Path,
     header: list[str],
     rows: list[dict[str, str]],
+    write_header: bool = True,
 ) -> None:
     output_path.parent.mkdir(parents=True, exist_ok=True)
     fd, temporary_name = tempfile.mkstemp(
@@ -186,7 +280,8 @@ def atomic_write_tsv(
                 lineterminator="\n",
                 extrasaction="raise",
             )
-            writer.writeheader()
+            if write_header:
+                writer.writeheader()
             writer.writerows(rows)
         os.replace(temporary_name, output_path)
     except Exception:
@@ -221,22 +316,40 @@ def atomic_write_json(output_path: Path, payload: dict[str, Any]) -> None:
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description=(
-            "Merge an existing CNVKit reference with a newly built batch "
-            "reference using sample-count weights."
+            "Prepare reference bins for coverage, or merge an existing CNVKit "
+            "reference with a new batch using sample-count weights."
         )
     )
     parser.add_argument("--old-reference", required=True, type=Path)
-    parser.add_argument("--new-reference", required=True, type=Path)
-    parser.add_argument("--old-sample-count", required=True, type=positive_int)
-    parser.add_argument("--new-sample-count", required=True, type=positive_int)
+    parser.add_argument("--prepare-bins", action="store_true", help="write reference bins for coverage")
+    parser.add_argument("--bed", type=Path, help="keep only bins fully covered by this BED")
+    parser.add_argument("--target-bed", type=Path)
+    parser.add_argument("--antitarget-bed", type=Path)
+    parser.add_argument("--new-reference", type=Path)
+    parser.add_argument("--old-sample-count", type=positive_int)
+    parser.add_argument("--new-sample-count", type=positive_int)
     parser.add_argument("--output", required=True, type=Path)
-    parser.add_argument("--report", required=True, type=Path)
+    parser.add_argument("--report", type=Path)
     return parser
 
 
 def main() -> int:
-    args = build_parser().parse_args()
+    parser = build_parser()
+    args = parser.parse_args()
     try:
+        if args.prepare_bins:
+            if args.target_bed is None or args.antitarget_bed is None:
+                parser.error("--prepare-bins requires --target-bed and --antitarget-bed")
+            prepare_reference(
+                args.old_reference, args.bed, args.output,
+                args.target_bed, args.antitarget_bed,
+            )
+            return 0
+        if args.bed is not None or args.target_bed is not None or args.antitarget_bed is not None:
+            parser.error("BED selection options require --prepare-bins")
+        required = (args.new_reference, args.old_sample_count, args.new_sample_count, args.report)
+        if any(value is None for value in required):
+            parser.error("merging requires --new-reference, sample counts and --report")
         header, merged_rows = merge_references(
             args.old_reference,
             args.new_reference,

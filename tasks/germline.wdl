@@ -524,3 +524,36 @@ task UpdateCNVKitReference {
         memory: "2G"
     }
 }
+
+# Reuse the reference's exact target and antitarget coordinates.
+task PrepareCNVReference {
+    input {
+        File reference
+        File? bed
+    }
+
+    command <<<
+        set -euo pipefail
+        if [ "~{defined(bed)}" = true ]; then
+            bed_args=(--bed "~{default="" bed}")
+        else
+            bed_args=()
+        fi
+        python3 /opt/schema-germline/scripts/update_cnv_reference.py \
+            --prepare-bins --old-reference "~{reference}" "${bed_args[@]}" \
+            --output selected.cnvkit.ref.cnn \
+            --target-bed reference.target.bed \
+            --antitarget-bed reference.antitarget.bed
+    >>>
+
+    output {
+        File selected_reference = "selected.cnvkit.ref.cnn"
+        File target_bed = "reference.target.bed"
+        File antitarget_bed = "reference.antitarget.bed"
+    }
+
+    runtime {
+        cpu: 1
+        memory: "2G"
+    }
+}

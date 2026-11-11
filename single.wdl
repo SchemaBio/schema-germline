@@ -290,19 +290,15 @@ workflow SingleWES {
     }
 
     # CNV分析
-    call CNVKIT.CNVKitAntitarget as CNVKitAntitarget {
+    call GERMLINE.PrepareCNVReference as ReferenceBins {
         input:
-            prefix = prefix,
-            fasta = ref_fasta_name,
-            assembly = assembly,
-            target_bed = TargetBed.target_bed,
-            ref_dir = ref_dir
+            reference = cnvkit_reference
     }
     call CNVKIT.CNVKitCoverage as CNVKitCoverage {
         input:
             prefix = prefix,
-            target_bed = TargetBed.target_bed,
-            antitarget_bed = CNVKitAntitarget.antitarget_bed,
+            target_bed = ReferenceBins.target_bed,
+            antitarget_bed = ReferenceBins.antitarget_bed,
             bam = Markdup.markdup_bam,
             bai = Markdup.markdup_bai,
             threads = 8

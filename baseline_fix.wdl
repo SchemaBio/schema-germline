@@ -54,20 +54,10 @@ workflow CNVBaselineFix {
             bed = bed
     }
 
-    call GERMLINE.TargetBed as TargetBed {
+    call GERMLINE.PrepareCNVReference as ReferenceBins {
         input:
-            prefix = prefix,
-            bed = FixBed.fixed_bed,
-            assembly = assembly
-    }
-
-    call CNVKIT.CNVKitAntitarget as CNVKitAntitarget {
-        input:
-            prefix = prefix,
-            target_bed = TargetBed.target_bed,
-            fasta = ref_fasta_name,
-            assembly = assembly,
-            ref_dir = ref_dir
+            reference = existing_reference,
+            bed = FixBed.fixed_bed
     }
 
     scatter (i in range(added_sample_count)) {
@@ -104,8 +94,8 @@ workflow CNVBaselineFix {
         call CNVKIT.CNVKitCoverage as CNVKitCoverage {
             input:
                 prefix = sample_prefix,
-                target_bed = TargetBed.target_bed,
-                antitarget_bed = CNVKitAntitarget.antitarget_bed,
+                target_bed = ReferenceBins.target_bed,
+                antitarget_bed = ReferenceBins.antitarget_bed,
                 bam = Markdup.markdup_bam,
                 bai = Markdup.markdup_bai,
                 threads = cnvkit_threads
@@ -124,7 +114,7 @@ workflow CNVBaselineFix {
     call GERMLINE.UpdateCNVKitReference as UpdateReference {
         input:
             prefix = prefix,
-            old_reference = existing_reference,
+            old_reference = ReferenceBins.selected_reference,
             new_reference = NewBatchReference.reference,
             old_sample_count = existing_sample_count,
             new_sample_count = added_sample_count
