@@ -18,6 +18,8 @@
 
 离线回归检查：`python -m unittest discover -s tests`（需要 Bash）。
 
+家系结果以先证者独立调用为基线，按位点顺序筛选父母 gVCF 证据，缺失保持未知。ProbandFamilyVCF 默认整体超时为 120 秒；性能基准、验证范围及复现方式见 [效率排查记录](docs/PROBAND_FAMILY_PERFORMANCE.md)。
+
 ## 快速开始
 
 ### 1. 环境要求
