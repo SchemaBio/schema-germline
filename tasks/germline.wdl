@@ -201,6 +201,7 @@ task SNPInDelReport {
         String? sample_names
         String? sex
         Boolean external_vcf = false
+        Boolean preserve_calls = false
         Int? expected_variant_count
     }
 
@@ -223,6 +224,9 @@ task SNPInDelReport {
         sample_names="~{default='' sample_names}"
         if [ -z "$sample_names" ]; then sample_names="~{prefix}"; fi
         extra_args=()
+        if ~{if preserve_calls then "true" else "false"}; then
+            extra_args=(--no-quality-filter)
+        fi
         if ~{if external_vcf then "true" else "false"}; then
             extra_args=(--no-quality-filter --strict-sex-chromosomes)
         fi
