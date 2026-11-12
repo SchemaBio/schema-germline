@@ -18,7 +18,7 @@
 
 离线回归检查：`python -m unittest discover -s tests`（需要 Bash）。
 
-家系结果以先证者独立调用为基线，按位点顺序筛选父母 gVCF 证据，缺失保持未知。ProbandFamilyVCF 默认整体超时为 120 秒；性能基准、验证范围及复现方式见 [效率排查记录](docs/PROBAND_FAMILY_PERFORMANCE.md)。
+家系流程直接使用 GLNexus 联合分型结果，沿用 1.4.1 的 DeepVariantWES 完整配置，仅将单成员等位基因阈值 min_AQ1 从 35 调为 20；min_AQ2=20、min_GQ=20 及其余参数保持不变。ProbandFamilyVCF 任务定义和测试保留，但不在 trio.wdl 中调用。
 
 ## 快速开始
 

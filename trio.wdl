@@ -202,19 +202,6 @@ workflow TrioWES {
             threads = 16
     }
 
-    # Interpret every proband call independently of cohort discovery thresholds.
-    call GLNEXUS.ProbandFamilyVCF as ProbandFamilyVCF {
-        input:
-            prefix = prefix,
-            proband_vcf = DeepVariant.vcf[0],
-            proband_vcf_tbi = DeepVariant.vcf_tbi[0],
-            parent_gvcfs = [DeepVariant.gvcf[1], DeepVariant.gvcf[2]],
-            parent_gvcf_tbis = [DeepVariant.gvcf_tbi[1], DeepVariant.gvcf_tbi[2]],
-            sample_names = meta_info.members,
-            fasta = ref_fasta_name,
-            ref_dir = ref_dir
-    }
-
     # 亲缘关系计算
     call PEDDY.Peddy as Peddy {
         input:
@@ -229,7 +216,7 @@ workflow TrioWES {
     # 多线程的whatshap加速处理
     call GERMLINE.SplitVcf as SplitVcfHap {
         input:
-            vcf = ProbandFamilyVCF.out_vcf
+            vcf = GLNexus.out_vcf
     }
 
     scatter (i in range(length(SplitVcfHap.split_vcfs))) {
@@ -298,8 +285,7 @@ workflow TrioWES {
             vep_vcf = UniversalMergeVcfs.merged_vcf,
             sry_file = SamtoolsSexCheck.SRY_count[0],
             sex_cutoff = sry_sex_cutoff,
-            sample_names = sep(",", meta_info.members),
-            preserve_calls = true
+            sample_names = sep(",", meta_info.members)
     }
 
     # 线粒体分析

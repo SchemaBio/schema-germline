@@ -11,6 +11,7 @@ task GLNexus {
     Int memory_gb = threads * 2
 
     command <<<
+        set -euo pipefail
         mkdir -p inputs_dir
         GVCFS=(~{sep=" " gvcf})
         TBIS=(~{sep=" " gvcf_tbi})
@@ -20,7 +21,57 @@ task GLNexus {
         done
 
         # 注意：这里的 inputs_dir/*.g.vcf.gz 假设你的输入文件以后缀 .g.vcf.gz 结尾
-        glnexus_cli --config DeepVariantWES \
+        # GLNexus v1.4.1 DeepVariantWES, changing only singleton min_AQ1.
+        cat > DeepVariantWES_AQ20.yml <<'GLNEXUS_CONFIG'
+        unifier_config:
+          min_AQ1: 20
+          min_AQ2: 20
+          min_GQ: 20
+          monoallelic_sites_for_lost_alleles: true
+          max_alleles_per_site: 32
+        genotyper_config:
+          required_dp: 0
+          revise_genotypes: true
+          snv_prior_calibration: 0.375
+          indel_prior_calibration: 0.375
+          allow_partial_data: true
+          more_PL: true
+          trim_uncalled_alleles: true
+          liftover_fields:
+            - orig_names: [MIN_DP, DP]
+              name: DP
+              description: '##FORMAT=<ID=DP,Number=1,Type=Integer,Description="Approximate read depth (reads with MQ=255 or with bad mates are filtered)">'
+              type: int
+              combi_method: min
+              number: basic
+              count: 1
+              ignore_non_variants: true
+            - orig_names: [AD]
+              name: AD
+              description: '##FORMAT=<ID=AD,Number=R,Type=Integer,Description="Allelic depths for the ref and alt alleles in the order listed">'
+              type: int
+              number: alleles
+              combi_method: min
+              default_type: zero
+              count: 0
+            - orig_names: [GQ]
+              name: GQ
+              description: '##FORMAT=<ID=GQ,Number=1,Type=Integer,Description="Genotype Quality">'
+              type: int
+              number: basic
+              combi_method: min
+              count: 1
+              ignore_non_variants: true
+            - orig_names: [PL]
+              name: PL
+              description: '##FORMAT=<ID=PL,Number=G,Type=Integer,Description="Phred-scaled genotype Likelihoods">'
+              type: int
+              number: genotype
+              combi_method: missing
+              count: 0
+              ignore_non_variants: true
+        GLNEXUS_CONFIG
+        glnexus_cli --config DeepVariantWES_AQ20.yml \
             --threads ~{threads} \
             inputs_dir/*.g.vcf.gz > ~{prefix}.glnexus.bcf
 
