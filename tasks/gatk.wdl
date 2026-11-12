@@ -50,17 +50,42 @@ task LeftAlignAndTrimVariants {
     }
 
     command <<<
-        gatk LeftAlignAndTrimVariants \
-            -R ~{ref_dir}/~{fasta} \
-            -V ~{vcf} \
-            -O ~{prefix}.left.vcf.gz \
-            --split-multi-allelics
+        set -euo pipefail
+        read_vcf() {
+            case "$1" in
+                *.gz|*.bgz) gzip -cd "$1" ;;
+                *) cat "$1" ;;
+            esac
+        }
+        # Split multiallelics expands one input row into one row per ALT.
+        expected_records=$(read_vcf "~{vcf}" | awk -F '\t' '!/^#/ && NF>=8 {n+=split($5,alts,",")} END {print n+0}')
 
-        # The result viewer reads compressed VCFs through HTTP Range requests.
-        # Keep the matching tabix index in the declared task outputs so the
-        # recursive archive step preserves both files together.
-        gatk IndexFeatureFile \
-            -I ~{prefix}.left.vcf.gz
+        # Splitting/trimming multiallelics can emit a later allele before an
+        # earlier indel. Build the index only after sorting all normalized rows.
+        gatk LeftAlignAndTrimVariants \
+            -R "~{ref_dir}/~{fasta}" \
+            -V "~{vcf}" \
+            -O normalized.unsorted.vcf.gz \
+            --split-multi-allelics \
+            --create-output-variant-index false
+
+        mkdir -p sort-tmp
+        gatk SortVcf \
+            -I normalized.unsorted.vcf.gz \
+            -O normalized.sorted.vcf.gz \
+            --CREATE_INDEX true \
+            --TMP_DIR sort-tmp
+
+        actual_records=$(read_vcf normalized.sorted.vcf.gz | awk '!/^#/ && NF>=8 {n++} END {print n+0}')
+        if [ "$actual_records" -ne "$expected_records" ]; then
+            printf 'LeftAlignAndTrimVariants record count mismatch: expected=%s actual=%s\n' "$expected_records" "$actual_records" >&2
+            exit 1
+        fi
+        test -s normalized.sorted.vcf.gz.tbi
+        # Publish the original output names only after normalization, sorting,
+        # indexing and completeness checks all succeed.
+        mv normalized.sorted.vcf.gz "~{prefix}.left.vcf.gz"
+        mv normalized.sorted.vcf.gz.tbi "~{prefix}.left.vcf.gz.tbi"
     >>>
 
     output {
